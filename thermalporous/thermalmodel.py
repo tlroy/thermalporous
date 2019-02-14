@@ -64,8 +64,8 @@ class ThermalModel:
             chk.load(u, name = "solution")
             chk.load(u_, name = "solution")
         else:
-            u.interpolate(self.initial_condition)
-            u_.interpolate(self.initial_condition)
+            u.assign(self.initial_condition)
+            u_.assign(self.initial_condition)
         
         # Time-stepping parameters
         dt_init = self.dt_init_fact*self.maxdt*24.0*3600.0
@@ -167,8 +167,8 @@ class ThermalModel:
                     N = self.geo.Nx*self.geo.Ny
                 elif self.geo.dim == 3:
                     N = self.geo.Nx*self.geo.Ny*self.geo.Nz
-                Sat = np.minimum(Sat, np.ones(N))
-                Sat = np.maximum(Sat, np.zeros(N))
+                Sat = np.minimum(Sat, np.ones(int(N)))
+                Sat = np.maximum(Sat, np.zeros(int(N)))
                 u.dat.data[2][...] = Sat    
                 
 

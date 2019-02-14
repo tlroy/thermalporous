@@ -47,8 +47,9 @@ class ConvDiffSchurPC(PCBase):
         n = FacetNormal(V.mesh())
 
         # Define difference between cell centers
-        x_func = interpolate(Expression("x[0]"), V)
-        y_func = interpolate(Expression("x[1]"), V)
+        x = SpatialCoordinate(V.mesh())
+        x_func = interpolate(x[0], V)
+        y_func = interpolate(x[1], V)
 
         # harmonic average for permeability and conductivity
         K_x_facet = conditional(gt(avg(K_x), 0.0), K_x('+')*K_x('-') / avg(K_x), 0.0) 
@@ -70,7 +71,7 @@ class ConvDiffSchurPC(PCBase):
         if geo.dim == 3:
             K_z = geo.K_z
             g = params.g
-            z_func = interpolate(Expression("x[2]"), V)
+            z_func = interpolate(x[2], V)
             Delta_h = sqrt(jump(x_func)**2 + jump(y_func)**2 + jump(z_func)**2)
             K_z_facet = conditional(gt(avg(K_z), 0.0), K_z('+')*K_z('-') / avg(K_z), 0.0)
             z_flow = jump(p0)/Delta_h - g*avg(oil_rho(p0,T0))
@@ -183,8 +184,9 @@ class ConvDiffSchurTwoPhasesPC(PCBase):
         n = FacetNormal(V.mesh())
 
         # Define difference between cell centers
-        x_func = interpolate(Expression("x[0]"), V)
-        y_func = interpolate(Expression("x[1]"), V)
+        x = SpatialCoordinate(V.mesh())
+        x_func = interpolate(x[0], V)
+        y_func = interpolate(x[1], V)
         
         # harmonic average for permeability and conductivity
         K_x_facet = conditional(gt(avg(K_x), 0.0), K_x('+')*K_x('-') / avg(K_x), 0.0) 
@@ -206,7 +208,7 @@ class ConvDiffSchurTwoPhasesPC(PCBase):
         if geo.dim == 3:
             K_z = geo.K_z
             g = params.g
-            z_func = interpolate(Expression("x[2]"), V)
+            z_func = interpolate(x[2], V)
             Delta_h = sqrt(jump(x_func)**2 + jump(y_func)**2 + jump(z_func)**2)
             K_z_facet = conditional(gt(avg(K_z), 0.0), K_z('+')*K_z('-') / avg(K_z), 0.0)
             z_flow_w = jump(p0)/Delta_h - g*avg(water_rho(p0,T0))
@@ -323,8 +325,9 @@ class ConvDiffSchurTwoPhasesPC(PCBase):
         #n = FacetNormal(V.mesh())
 
         ## Define difference between cell centers
-        #x_func = interpolate(Expression("x[0]"), V)
-        #y_func = interpolate(Expression("x[1]"), V)
+        #x = SpatialCoordinate(V.mesh())
+        #x_func = interpolate(x[0], V)
+        #y_func = interpolate(x[1], V)
         #Delta_h = sqrt(jump(x_func)**2 + jump(y_func)**2)
 
         ## harmonic average for permeability and conductivity
@@ -648,8 +651,9 @@ class CPTRStage1PC(PCBase):
         n = FacetNormal(V.mesh())
 
         # Define difference between cell centers
-        x_func = interpolate(Expression("x[0]"), V)
-        y_func = interpolate(Expression("x[1]"), V)
+        x = SpatialCoordinate(V.mesh())
+        x_func = interpolate(x[0], V)
+        y_func = interpolate(x[1], V)
         Delta_h = sqrt(jump(x_func)**2 + jump(y_func)**2)
 
         # harmonic average for permeability and conductivity

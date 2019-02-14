@@ -48,7 +48,7 @@ class TwoPhase(ThermalModel):
         p_ref = self.params.p_ref
         T_prod = self.params.T_prod
         S_o = self.params.S_o
-        return Expression(("p_ref", "T_prod", "S_o"), p_ref = p_ref, T_prod = T_prod, S_o = S_o)
+        return Constant((p_ref, T_prod, S_o))
     
     def init_variational_form_2D(self):
         W = self.W
@@ -88,8 +88,9 @@ class TwoPhase(ThermalModel):
         n = FacetNormal(mesh)
 
         # Define difference between cell centers
-        x_func = interpolate(Expression("x[0]"), V)
-        y_func = interpolate(Expression("x[1]"), V)
+        x = SpatialCoordinate(V.mesh())
+        x_func = interpolate(x[0], V)
+        y_func = interpolate(x[1], V)
         Delta_h = sqrt(jump(x_func)**2 + jump(y_func)**2)
 
         # harmonic average for permeability and conductivity
@@ -188,9 +189,10 @@ class TwoPhase(ThermalModel):
         n = FacetNormal(mesh)
 
         # Define difference between cell centers
-        x_func = interpolate(Expression("x[0]"), V)
-        y_func = interpolate(Expression("x[1]"), V)
-        z_func = interpolate(Expression("x[2]"), V)
+        x = SpatialCoordinate(V.mesh())
+        x_func = interpolate(x[0], V)
+        y_func = interpolate(x[1], V)
+        z_func = interpolate(x[2], V)
         Delta_h = sqrt(jump(x_func)**2 + jump(y_func)**2 + jump(z_func)**2)
 
         # harmonic average for permeability and conductivity
