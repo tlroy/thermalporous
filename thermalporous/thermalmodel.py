@@ -127,12 +127,13 @@ class ThermalModel:
             
             for well in self.case.prod_wells:
                 current_prod_rate = assemble(well['delta']*well['rate']*dx)
-                if self.comm.rank == 0:
-                    if self.name == 'Two-phase':
-                        current_water_rate = assemble(well['delta']*well['water_rate']*dx)
-                        current_oil_rate = assemble(well['delta']*well['oil_rate']*dx)
+                if self.name == 'Two-phase':
+                    current_water_rate = assemble(well['delta']*well['water_rate']*dx)
+                    current_oil_rate = assemble(well['delta']*well['oil_rate']*dx)
+                    if self.comm.rank == 0:
                         print("Water rate for well ", well['name'], " is ", current_water_rate)
                         print("Oil rate for well ", well['name'], " is ", current_oil_rate)
+                if self.comm.rank == 0:
                     print("New production rate for well ", well['name'], " is ", current_prod_rate,
                     #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']], 
                     )
@@ -163,10 +164,7 @@ class ThermalModel:
                     u.assign(u_)
                     self.solver.solve()
                     Sat = u.dat.data[2]
-                if self.geo.dim == 2:
-                    N = self.geo.Nx*self.geo.Ny
-                elif self.geo.dim == 3:
-                    N = self.geo.Nx*self.geo.Ny*self.geo.Nz
+                N = len(Sat)
                 Sat = np.minimum(Sat, np.ones(int(N)))
                 Sat = np.maximum(Sat, np.zeros(int(N)))
                 u.dat.data[2][...] = Sat    
