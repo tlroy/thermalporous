@@ -86,16 +86,20 @@ class ThermalModel:
         total_nits = 0
         
         if self.save:
-            outfilep = File("results/pressure.pvd")
-            outfileT = File("results/temperature.pvd")
-            if self.name == "Two-phase":
-                outfileS_o = File("results/saturation_o.pvd")
-                (pvec, Tvec, S_ovec) = u.split()
-                outfileS_o.write(S_ovec)
+            if self.vector:
+                outfileu = File("results/vecsolution.pvd")
+                outfileu.write(u)
             else:
-                (pvec, Tvec) = u.split()
-            outfilep.write(pvec)
-            outfileT.write(Tvec)
+                outfilep = File("results/pressure.pvd")
+                outfileT = File("results/temperature.pvd")
+                if self.name == "Two-phase":
+                    outfileS_o = File("results/saturation_o.pvd")
+                    (pvec, Tvec, S_ovec) = u.split()
+                    outfileS_o.write(S_ovec)
+                else:
+                    (pvec, Tvec) = u.split()
+                outfilep.write(pvec)
+                outfileT.write(Tvec)
         if self.comm.rank == 0:
             print("Solving time-dependent problem")
 
@@ -180,15 +184,18 @@ class ThermalModel:
             # save solutions
             if self.save:
                 if i_plot%self.n_save == 0:
-                    if self.name == "Two-phase":
-                        (pvec, Tvec, S_ovec) = u.split()
-                        outfileS_o.write(S_ovec)
+                    if self.vector:
+                        outfileu.write(u)
                     else:
-                        (pvec, Tvec) = u.split()
-                    if self.comm.rank == 0:
-                        print(i_plot, "th plot")
-                    outfilep.write(pvec)
-                    outfileT.write(Tvec)
+                        if self.name == "Two-phase":
+                            (pvec, Tvec, S_ovec) = u.split()
+                            outfileS_o.write(S_ovec)
+                        else:
+                            (pvec, Tvec) = u.split()
+                        if self.comm.rank == 0:
+                            print(i_plot, "th plot")
+                        outfilep.write(pvec)
+                        outfileT.write(Tvec)
                 i_plot += 1
 
             
