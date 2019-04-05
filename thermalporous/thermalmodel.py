@@ -213,7 +213,7 @@ class ThermalModel:
                 dt_counter += 1
                 nits_vec.append(current_nits)
                 lits_vec.append(current_lits)
-            if self.geo.name == "SPE10":
+            if self.geo.name.startswith("SPE10"):
                 if current_nits < 6:# and previous_fail == 0:
                     factor = 1 + min(1.0, (6 - current_nits)**2/3**2)
                     self.dt.assign(min(dt_inj,current_dt*factor))
