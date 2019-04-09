@@ -10,6 +10,7 @@ Nz = 16
 def create_SPE10_slice(Nx, Ny, Nz, x_shift = 0, y_shift = 0, z_shift = 0):
     import os
     dirname = os.path.dirname(__file__)
+    # z_shift from top layer
 
     Dx = 6.096
     Dy = 3.048
@@ -41,7 +42,7 @@ def create_SPE10_slice(Nx, Ny, Nz, x_shift = 0, y_shift = 0, z_shift = 0):
     for kk in range(0,Nz):
         for j in range(0,Ny):
             for i in range(0,Nx):
-                field[i][j][kk] = single_line[(i+x_shift)+(j+y_shift)*60+(kk+z_shift)*220*60]
+                field[i][j][Nz-1-kk] = single_line[(i+x_shift)+(j+y_shift)*60+(kk+z_shift)*220*60]
                 #k += 1
                 
     phi_array = np.array(field)
@@ -61,7 +62,7 @@ def create_SPE10_slice(Nx, Ny, Nz, x_shift = 0, y_shift = 0, z_shift = 0):
     for kk in range(0,Nz):
         for j in range(0,Ny):
             for i in range(0,Nx):
-                field[i][j][kk] = single_line[(i+x_shift)+(j+y_shift)*60+(kk+z_shift)*220*60,0]
+                field[i][j][Nz-1-kk] = single_line[(i+x_shift)+(j+y_shift)*60+(kk+z_shift)*220*60,0]
     
     permx_array = np.array(field)
 
@@ -70,7 +71,7 @@ def create_SPE10_slice(Nx, Ny, Nz, x_shift = 0, y_shift = 0, z_shift = 0):
     for kk in range(0,Nz):
         for j in range(0,Ny):
             for i in range(0,Nx):
-                field[i][j][kk] = single_line[(i+x_shift)+(j+y_shift)*60+(kk+z_shift)*220*60,1]
+                field[i][j][Nz-1-kk] = single_line[(i+x_shift)+(j+y_shift)*60+(kk+z_shift)*220*60,1]
     
     permy_array = np.array(field)
 
@@ -79,7 +80,7 @@ def create_SPE10_slice(Nx, Ny, Nz, x_shift = 0, y_shift = 0, z_shift = 0):
     for kk in range(0,Nz):
         for j in range(0,Ny):
             for i in range(0,Nx):
-                field[i][j][kk] = single_line[(i+x_shift)+(j+y_shift)*60+(kk+z_shift)*220*60,2]
+                field[i][j][Nz-1-kk] = single_line[(i+x_shift)+(j+y_shift)*60+(kk+z_shift)*220*60,2]
     
     permz_array = np.array(field)
 
