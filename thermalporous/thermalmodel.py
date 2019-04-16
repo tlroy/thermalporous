@@ -121,26 +121,55 @@ class ThermalModel:
                 print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". dt size: ", self.dt.values()[0]/24.0/3600.0)  
                 
                 
-            # Need a way to do this in parallel
-            for well in self.case.inj_wells:
-                current_inj_rate = assemble(well['delta']*well['rate']*dx)
+            if self.case.inj_wells:    #in cases with many wells, calculate individual rates is slow with assemble. 
+                current_inj_rate_ = 0 
+                for well in self.case.inj_wells:
+                    current_inj_rate_ += well['delta']*well['rate']*dx
+                current_inj_rate = assemble(current_inj_rate_)
                 if self.comm.rank == 0:
-                    print("New injection rate for well ", well['name'], " is ", current_inj_rate#,
+                    print("Total injection rate is ", current_inj_rate#,
                     #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']]
                     )
-            
-            for well in self.case.prod_wells:
-                current_prod_rate = assemble(well['delta']*well['rate']*dx)
+            if self.case.prod_wells:
+                current_prod_rate_ = 0
+                for well in self.case.prod_wells:
+                    current_prod_rate_ += well['delta']*well['rate']*dx
+                current_prod_rate = assemble(current_prod_rate_)
                 if self.name == 'Two-phase':
-                    current_water_rate = assemble(well['delta']*well['water_rate']*dx)
-                    current_oil_rate = assemble(well['delta']*well['oil_rate']*dx)
+                    current_water_rate_ = 0; current_oil_rate_ = 0
+                    for well in self.case.prod_wells:
+                        current_water_rate_ += well['delta']*well['water_rate']*dx
+                        current_oil_rate_ += well['delta']*well['oil_rate']*dx
+                    current_water_rate = assemble(current_water_rate_)
+                    current_oil_rate = assemble(current_oil_rate_)
                     if self.comm.rank == 0:
-                        print("Water rate for well ", well['name'], " is ", current_water_rate)
-                        print("Oil rate for well ", well['name'], " is ", current_oil_rate)
+                        print("Total water production rate is ", current_water_rate)
+                        print("Total oil production rate is ", current_oil_rate)
                 if self.comm.rank == 0:
-                    print("New production rate for well ", well['name'], " is ", current_prod_rate,
+                    print("Total production rate is ", current_prod_rate,
                     #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']], 
                     )
+            if False:
+                for well in self.case.inj_wells:
+                    current_inj_rate = assemble(well['delta']*well['rate']*dx)
+                    if self.comm.rank == 0:
+                        print("New injection rate for well ", well['name'], " is ", current_inj_rate#,
+                        #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']]
+                        )
+                
+                for well in self.case.prod_wells:
+                    current_prod_rate = assemble(well['delta']*well['rate']*dx)
+                    if self.name == 'Two-phase':
+                        current_water_rate = assemble(well['delta']*well['water_rate']*dx)
+                        current_oil_rate = assemble(well['delta']*well['oil_rate']*dx)
+                        if self.comm.rank == 0:
+                            print("Water rate for well ", well['name'], " is ", current_water_rate)
+                            print("Oil rate for well ", well['name'], " is ", current_oil_rate)
+                    if self.comm.rank == 0:
+                        print("New production rate for well ", well['name'], " is ", current_prod_rate,
+                        #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']], 
+                        )
+                    
             if self.comm.rank == 0:
                 print(" ")
                     
@@ -150,6 +179,17 @@ class ThermalModel:
                     if self.name == "Two-phase":
                         print(np.max(u.dat.data[2]))
                 except exceptions.ConvergenceError:
+                    print(np.max(u.dat.data[2]))
+                    #if self.name == "Two-phase":
+                        #(pvec, Tvec, S_ovec) = u.split()
+                        #outfileS_o.write(S_ovec)
+                    #else:
+                        #(pvec, Tvec) = u.split()
+                    if self.comm.rank == 0:
+                        print(i_plot, "th plot")
+                    #outfilep.write(pvec)
+                    #outfileT.write(Tvec)
+                    #from IPython import embed; embed()
                     self.dt.assign(self.dt.values()[0]*0.5)
                     print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
                     u.assign(u_)
