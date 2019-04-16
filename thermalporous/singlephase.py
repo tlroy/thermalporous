@@ -341,4 +341,4 @@ class SinglePhase(ThermalModel):
  
     @cached_property
     def appctx(self):
-        return {"pressure_space": 0, "temperature_space": 1, "params": self.params, "geo": self.geo, "dt": self.dt, "u_": self.u_, "prod_wells": self.case.prod_wells, "case": self.case}
+        return {"pressure_space": 0, "temperature_space": 1, "params": self.params, "geo": self.geo, "dt": self.dt, "u_": self.u_, "case": self.case}

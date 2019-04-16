@@ -416,4 +416,4 @@ class TwoPhase(ThermalModel):
  
     @cached_property
     def appctx(self):
-        return {"pressure_space": 0, "temperature_space": 1, "saturation_space": 2, "params": self.params, "geo": self.geo, "dt": self.dt, "prod_wells": self.case.prod_wells, "inj_wells": self.case.inj_wells, "case": self.case, "u_": self.u_}
+        return {"pressure_space": 0, "temperature_space": 1, "saturation_space": 2, "params": self.params, "geo": self.geo, "dt": self.dt, "case": self.case, "u_": self.u_}
