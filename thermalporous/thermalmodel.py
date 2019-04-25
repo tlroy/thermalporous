@@ -120,8 +120,13 @@ class ThermalModel:
             if self.comm.rank == 0:
                 print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". dt size: ", self.dt.values()[0]/24.0/3600.0)  
                 
-                
-            if self.case.inj_wells:    #in cases with many wells, calculate individual rates is slow with assemble. 
+            if self.case.name.startswith("Sources"):
+                current_inj_rate = assemble(self.case.deltas_inj*self.inj_rate*dx)
+                print("Total injection rate is ", current_inj_rate)
+                current_prod_rate = assemble(self.case.deltas_prod*self.prod_rate*dx)
+                print("Total production rate is ", current_prod_rate)
+
+            if self.case.inj_wells:    #in cases with many wells, calculate individual rates is slow with assemble. In those cases, might be better to use SourceTerms instead
                 current_inj_rate_ = 0 
                 for well in self.case.inj_wells:
                     current_inj_rate_ += well['delta']*well['rate']*dx
@@ -179,7 +184,8 @@ class ThermalModel:
                     if self.name == "Two-phase":
                         print(np.max(u.dat.data[2]))
                 except exceptions.ConvergenceError:
-                    print(np.max(u.dat.data[2]))
+                    if self.name == "Two-phase":
+                        print(np.max(u.dat.data[2]))
                     #if self.name == "Two-phase":
                         #(pvec, Tvec, S_ovec) = u.split()
                         #outfileS_o.write(S_ovec)

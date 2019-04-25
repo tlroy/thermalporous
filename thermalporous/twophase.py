@@ -124,7 +124,30 @@ class TwoPhase(ThermalModel):
         a = a_accum_w + a_flow_w + a_accum_o + a_flow_o + a_Eaccum + a_diff + a_advec
         self.F = a 
         
-        # TO DO: add gravity
+        rhow_o = oil_rho(p, T)
+        rhow_w = water_rho(p, T)
+        rhow = water_rho(p, T_inj)
+
+        ## Source terms using global deltas
+        if self.case.name.startswith("Sources"):
+            # production wells
+            [rate, water_rate, oil_rate] = self.case.flow_rate_twophase_prod(p, T, S_o = S_o)
+            self.prod_rate = rate
+            self.oil_rate = oil_rate
+            self.water_rate = water_rate
+            tmp_o = self.case.deltas_prod*oil_rate
+            tmp_w = self.case.deltas_prod*water_rate
+            self.F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx 
+            self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
+            # injection wells
+            inj_rate = self.case.flow_rate_inj(p, T, phase = 'water')
+            self.inj_rate = inj_rate
+            tmp = self.case.deltas_inj*inj_rate
+            self.F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+            self.F -= rhow*tmp*c_v_w*T_inj*r*dx
+            # heaters
+            self.F -= self.case.deltas_heaters*self.params.U*(T_inj-T)*r*dx
+
         # source terms
         for well in self.case.prod_wells:
             [rate, water_rate, oil_rate] = self.case.flow_rate_twophase(p, T, well, S_o = S_o)
@@ -133,8 +156,6 @@ class TwoPhase(ThermalModel):
             well.update({'oil_rate': oil_rate})
             tmp_o =  well['delta']*oil_rate
             tmp_w = well['delta']*water_rate
-            rhow_o = oil_rho(p, T)
-            rhow_w = water_rho(p, T)
             #self.F -= rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx
             self.F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
@@ -142,14 +163,13 @@ class TwoPhase(ThermalModel):
             rate = self.case.flow_rate(p, T, well, phase = 'water') # only inject water
             well.update({'rate': rate})
             tmp = well['delta']*rate
-            rhow = water_rho(p, T_inj)
             #self.F -= rhow*tmp*q*dx
             self.F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
         for heater in self.case.heaters:
             tmp = heater['delta']
             self.F -= tmp*self.params.U*(T_inj-T)*r*dx
-        
+
     def init_variational_form_3D(self):
         W = self.W
         V = self.V
@@ -235,8 +255,32 @@ class TwoPhase(ThermalModel):
 
         a = a_accum_w + a_flow_w + a_flow_w_z + a_accum_o + a_flow_o + a_flow_o_z + a_Eaccum + a_advec + a_advec_z + a_diff
         self.F = a 
-        
-        # source terms
+
+        rhow_o = oil_rho(p, T)
+        rhow_w = water_rho(p, T)
+        rhow = water_rho(p, T_inj)
+
+        ## Source terms using global deltas
+        if self.case.name.startswith("Sources"):
+            # production wells
+            [rate, water_rate, oil_rate] = self.case.flow_rate_twophase_prod(p, T, S_o = S_o)
+            self.prod_rate = rate
+            self.oil_rate = oil_rate
+            self.water_rate = water_rate
+            tmp_o = self.case.deltas_prod*oil_rate
+            tmp_w = self.case.deltas_prod*water_rate
+            self.F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx 
+            self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
+            # injection wells
+            inj_rate = self.case.flow_rate_inj(p, T, phase = 'water')
+            self.inj_rate = inj_rate
+            tmp = self.case.deltas_inj*inj_rate
+            self.F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+            self.F -= rhow*tmp*c_v_w*T_inj*r*dx
+            # heaters
+            self.F -= self.case.deltas_heaters*self.params.U*(T_inj-T)*r*dx
+
+        ## Source terms using local deltas - does not work for large number of loops
         for well in self.case.prod_wells:
             [rate, water_rate, oil_rate] = self.case.flow_rate_twophase(p, T, well, S_o = S_o)
             well.update({'rate': rate})
@@ -244,23 +288,21 @@ class TwoPhase(ThermalModel):
             well.update({'oil_rate': oil_rate})
             tmp_o =  well['delta']*oil_rate
             tmp_w = well['delta']*water_rate
-            rhow_o = oil_rho(p, T)
-            rhow_w = water_rho(p, T)
             #self.F -= rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx
-            self.F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
+            # with weighted sum
+            self.F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx 
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
         for well in self.case.inj_wells:
             rate = self.case.flow_rate(p, T, well, phase = 'water') # only inject water
             well.update({'rate': rate})
             tmp = well['delta']*rate
-            rhow = water_rho(p, T_inj)
             #self.F -= rhow*tmp*q*dx
             self.F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
         for heater in self.case.heaters:
             tmp = heater['delta']
             self.F -= tmp*self.params.U*(T_inj-T)*r*dx
-        
+
     def init_solver_parameters(self):
         # set to 1 for p,T order, 0 for T,p order in the fieldsplit solver
         # Schur complement always bottom right

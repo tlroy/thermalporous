@@ -106,26 +106,44 @@ class SinglePhase(ThermalModel):
 
         a = a_accum + a_flow + a_Eaccum + a_diff + a_advec
         self.F = a 
-        
-        # source terms
+
+        rhow_o = oil_rho(p, T)
+        rhow = oil_rho(p, T_inj)
+
+        ## Source terms using global deltas
+        if self.case.name.startswith("Sources"):
+            # production wells
+            prod_rate = self.case.flow_rate_prod(p, T)
+            self.prod_rate = prod_rate
+            tmp = self.case.deltas_prod*prod_rate
+            self.F -= rhow_o*tmp*q*dx
+            self.F -= rhow_o*tmp*c_v*T*r*dx
+            # injection wells
+            inj_rate = self.case.flow_rate_inj(p, T)
+            self.inj_rate = inj_rate
+            tmp = self.case.deltas_inj*inj_rate
+            self.F -= rhow*tmp*q*dx
+            self.F -= rhow*tmp*c_v*T_inj*r*dx
+            # heaters
+            self.F -= self.case.deltas_heaters*self.params.U*(T_inj-T)*r*dx
+
+        ## Source terms using sum of local deltas
         for well in self.case.prod_wells:
             rate = self.case.flow_rate(p, T, well)
             well.update({'rate': rate})
             tmp =  well['delta']*rate
-            rhow = oil_rho(p, T)
-            self.F -= rhow*tmp*q*dx
-            self.F -= rhow*tmp*c_v*T*r*dx
+            self.F -= rhow_o*tmp*q*dx
+            self.F -= rhow_o*tmp*c_v*T*r*dx
         for well in self.case.inj_wells:
             rate = self.case.flow_rate(p, T, well)
             well.update({'rate': rate})
             tmp = well['delta']*rate
-            rhow = oil_rho(p, T_inj)
             self.F -= rhow*tmp*q*dx
             self.F -= rhow*tmp*c_v*T_inj*r*dx
         for heater in self.case.heaters:
             tmp = heater['delta']
             self.F -= tmp*self.params.U*(T_inj-T)*r*dx
-        #from IPython import embed; embed()   
+
     def init_variational_form_3D(self):
         W = self.W
         V = self.V
@@ -190,26 +208,44 @@ class SinglePhase(ThermalModel):
 
         a = a_accum + a_flow + a_Eaccum + a_diff + a_advec + a_flow_z + a_advec_z
         self.F = a 
-        
-        # source terms
+
+        rhow_o = oil_rho(p, T)
+        rhow = oil_rho(p, T_inj)
+
+        ## Source terms using global deltas
+        if self.case.name.startswith("Sources"):
+            # production wells
+            prod_rate = self.case.flow_rate_prod(p, T)
+            self.prod_rate = prod_rate
+            tmp = self.case.deltas_prod*prod_rate
+            self.F -= rhow_o*tmp*q*dx
+            self.F -= rhow_o*tmp*c_v*T*r*dx
+            # injection wells
+            inj_rate = self.case.flow_rate_inj(p, T)
+            self.inj_rate = inj_rate
+            tmp = self.case.deltas_inj*inj_rate
+            self.F -= rhow*tmp*q*dx
+            self.F -= rhow*tmp*c_v*T_inj*r*dx
+            # heaters
+            self.F -= self.case.deltas_heaters*self.params.U*(T_inj-T)*r*dx
+
+        ## Source terms using sum of local deltas
         for well in self.case.prod_wells:
             rate = self.case.flow_rate(p, T, well)
             well.update({'rate': rate})
             tmp =  well['delta']*rate
-            rhow = oil_rho(p, T)
-            self.F -= rhow*tmp*q*dx
-            self.F -= rhow*tmp*c_v*T*r*dx
+            self.F -= rhow_o*tmp*q*dx
+            self.F -= rhow_o*tmp*c_v*T*r*dx
         for well in self.case.inj_wells:
             rate = self.case.flow_rate(p, T, well)
             well.update({'rate': rate})
             tmp = well['delta']*rate
-            rhow = oil_rho(p, T_inj)
             self.F -= rhow*tmp*q*dx
             self.F -= rhow*tmp*c_v*T_inj*r*dx
         for heater in self.case.heaters:
             tmp = heater['delta']
             self.F -= tmp*self.params.U*(T_inj-T)*r*dx
-        
+
     def init_solver_parameters(self):
         # set to 1 for p,T order, 0 for T,p order in the fieldsplit solver
         # Schur complement always bottom right

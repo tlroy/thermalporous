@@ -81,11 +81,20 @@ class ConvDiffSchurPC(PCBase):
             a_diff = kT_facet*jump(T)/Delta_h*jump(r)*(dS_h + dS_v)
             a = a_Eaccum + a_diff + a_advec + a_advec_z
 
-        # source terms
+        rhow = oil_rho(p0, T0)
+        # Source terms using global deltas
+        if case.name.startswith("Sources"):
+            # production wells
+            prod_rate = case.flow_rate_prod(p0, T0)
+            prod_rate = prod_rate
+            tmp = case.deltas_prod*prod_rate
+            a -= rhow*tmp*c_v*T*r*dx
+            # heaters
+            a -= case.deltas_heaters*params.U*(-T)*r*dx
+        # Source terms with local deltas
         for well in case.prod_wells:
             rate = case.flow_rate(p0, T0, well)
             tmp =  well['delta']*rate
-            rhow = oil_rho(p0, T0)
             a -= rhow*tmp*c_v*T*r*dx
         for heater in case.heaters:
             tmp = heater['delta']
@@ -220,14 +229,24 @@ class ConvDiffSchurTwoPhasesPC(PCBase):
             a_diff = kT_facet*jump(T)/Delta_h*jump(r)*(dS_h + dS_v)
             a = a_Eaccum + a_diff + a_advec + a_advec_z
 
-        # source terms
+
+        rhow_o = oil_rho(p0, T0)
+        rhow_w = water_rho(p0, T0)
+        # Source terms using global deltas
+        if case.name.startswith("Sources"):
+            # production wells
+            [rate, water_rate, oil_rate] = case.flow_rate_twophase_prod(p0, T0, S_o = S0)
+            tmp_o = case.deltas_prod*oil_rate
+            tmp_w = case.deltas_prod*water_rate
+            a -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
+            # heaters
+            a -= case.deltas_heaters*params.U*(-T)*r*dx
+        # Source terms with local deltas
         for well in case.prod_wells:
             [rate, water_rate, oil_rate] = case.flow_rate_twophase(p0, T0, well, S_o = S0)
             #well.update({'rate': rate})
             tmp_o =  well['delta']*oil_rate
             tmp_w = well['delta']*water_rate
-            rhow_o = oil_rho(p0, T0)
-            rhow_w = water_rho(p0, T0)
             a -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
         for heater in case.heaters:
             tmp = heater['delta']
@@ -683,23 +702,41 @@ class CPTRStage1PC(PCBase):
         F = a_accum_w + a_flow_w + a_Eaccum + a_diff + a_advec
         
         
-        # source terms
+        rhow_o = oil_rho(p, T)
+        rhow_w = water_rho(p, T)
+        rhow = water_rho(p, T_inj)
+        ## Source terms using global deltas
+        if case.name.startswith("Sources"):
+            # production wells
+            [rate, water_rate, oil_rate] = case.flow_rate_twophase_prod(p, T, S_o = S_o)
+            tmp_o = case.deltas_prod*oil_rate
+            tmp_w = case.deltas_prod*water_rate
+            F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx 
+            F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
+            # injection wells
+            inj_rate = case.flow_rate_inj(p, T, phase = 'water')
+            tmp = case.deltas_inj*inj_rate
+            F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+            F -= rhow*tmp*c_v_w*T_inj*r*dx
+            # heaters
+            F -= case.deltas_heaters*params.U*(T_inj-T)*r*dx
+        # Source terms with local deltas
         for well in case.prod_wells:
             [rate, water_rate, oil_rate] = case.flow_rate_twophase(p, T, well, S_o = S_o)
             tmp_o =  well['delta']*oil_rate
             tmp_w = well['delta']*water_rate
-            rhow_o = oil_rho(p, T)
-            rhow_w = water_rho(p, T)
             #self.F -= rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx
             F -= c_v_w*rhow_w*tmp_w*q*dx + c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
             F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
         for well in case.inj_wells:
             rate = case.flow_rate(p, T, well, phase = 'water') # only inject water
             tmp = well['delta']*rate
-            rhow = water_rho(p, T_inj)
             #self.F -= rhow*tmp*q*dx
             F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             F -= rhow*tmp*c_v_w*T_inj*r*dx
+        for heater in case.heaters:
+            tmp = heater['delta']
+            F -= tmp*params.U*(T_inj-T)*r*dx
         
         # Getting the pressure temperature sub blocks. 
         J = derivative(F, u)
