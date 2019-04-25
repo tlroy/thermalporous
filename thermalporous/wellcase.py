@@ -64,7 +64,6 @@ class WellCase():
         
         self.init_wells(prod_points, inj_points, 'circle')
         
-        
     def init_wells(self, prod_points, inj_points, wellfunc):
         self.prod_wells = []
         self.inj_wells = []
@@ -103,8 +102,7 @@ class WellCase():
         return {'name': welltype + current_count, 'bhp': bhp, 'location': w,
                 #'node': node,
                 'delta': delta, 'max_rate': max_rate, 'rate': 0.0}
-        
-        
+
     def well_circle(self, w):
         xw = w[0]
         yw = w[1]
@@ -126,7 +124,7 @@ class WellCase():
         zw = w[2]
         x, y, z = SpatialCoordinate(self.mesh)
         radius = 0.1 #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
-        height = 1.0
+        height = 1.0 # WARNING: if using SPE10, this needs to be smaller if you one single cell wells. Or can just use 'delta' or SourceTerms instead
         delta = Function(self.V)
         delta.assign(interpolate(conditional(pow(x-xw,2)+pow(y-yw,2)<pow(radius,2), conditional(abs(z-zw)<height, 1.0, 0.0)*exp(-(1.0/(-pow(x-xw,2)-pow(y-yw,2)+pow(radius,2)))), 0.0), self.V))
         normalise = assemble(delta*dx)
@@ -144,7 +142,11 @@ class WellCase():
         if node_w >= 0:
             vec[node_w] = 1.0
         delta.vector().set_local(vec)
-        normalise = assemble(delta*dx)
+        #normalise = assemble(delta*dx)
+        if self.geo.dim == 2:
+            normalise = self.geo.Dx*self.geo.Dy
+        elif self.geo.dim == 3:
+            normalise = self.geo.Dx*self.geo.Dy*self.geo.Dz
         return delta.assign(delta/normalise)
     
     def flow_rate_(self, p, T, well, phase = 'oil'):
@@ -182,7 +184,6 @@ class WellCase():
     def flow_rate_constant(self, p, T, well, phase = 'oil'):
         return well['max_rate']
     
-
     def flow_rate_twophase_(self, p, T, well, S_o = 1.0):
         #volumetric flow rate of wells using Peaceman model
         import math
@@ -248,4 +249,3 @@ class WellCase():
         water_rate = (1-S_o)/water_mu(T)*mu*rate
         oil_rate = S_o/oil_mu(T)*mu*rate
         return [rate, water_rate, oil_rate]
-        
