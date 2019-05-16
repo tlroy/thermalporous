@@ -36,24 +36,38 @@ class ThermalModel:
         
         self.problem = NonlinearVariationalProblem(self.F, self.u, self.bcs)
         solver = NonlinearVariationalSolver(self.problem, appctx=self.appctx, solver_parameters=self.solver_parameters)
-
-        res = Function(self.W)
-        def my_monitor(ksp, its, rnorm):
-            residual = ksp.buildResidual() 
-            with res.dat.vec_wo as v:
-                residual.copy(v)
-            vec_p = res.sub(0).vector()
-            rnorm_p = sqrt(vec_p.inner(vec_p))
-            vec_E = res.sub(1).vector()
-            rnorm_E = sqrt(vec_E.inner(vec_E))
-            vec_o = res.sub(2).vector()
-            rnorm_o = sqrt(vec_o.inner(vec_o))
-            if self.comm.rank == 0:
-                print("  --> Pressure equation residual: %s" % (rnorm_p))
-                print("  --> Energy equation residual: %s" % (rnorm_E))
-                print("  --> Oil equation residual: %s" % (rnorm_o))
-            
-        solver.snes.ksp.setMonitor(my_monitor)
+        
+        if "ksp_monitor_residuals" in self.solver_parameters:
+            res = Function(self.W)
+            if self.name == "Two-phase":
+                def my_monitor(ksp, its, rnorm):
+                    residual = ksp.buildResidual() 
+                    with res.dat.vec_wo as v:
+                        residual.copy(v)
+                    vec_p = res.sub(0).vector()
+                    rnorm_p = sqrt(vec_p.inner(vec_p))
+                    vec_E = res.sub(1).vector()
+                    rnorm_E = sqrt(vec_E.inner(vec_E))
+                    vec_o = res.sub(2).vector()
+                    rnorm_o = sqrt(vec_o.inner(vec_o))
+                    if self.comm.rank == 0:
+                        print("  --> Pressure equation residual: %s" % (rnorm_p))
+                        print("  --> Energy equation residual: %s" % (rnorm_E))
+                        print("  --> Oil equation residual: %s" % (rnorm_o))
+            else:
+                def my_monitor(ksp, its, rnorm):
+                    residual = ksp.buildResidual() 
+                    with res.dat.vec_wo as v:
+                        residual.copy(v)
+                    vec_M = res.sub(0).vector()
+                    rnorm_M = sqrt(vec_p.inner(vec_M))
+                    vec_E = res.sub(1).vector()
+                    rnorm_E = sqrt(vec_E.inner(vec_E))
+                    if self.comm.rank == 0:
+                        print("  --> Mass equation residual: %s" % (rnorm_M))
+                        print("  --> Energy equation residual: %s" % (rnorm_E))
+                        
+            solver.snes.ksp.setMonitor(my_monitor)
                    
         self.solver = solver
 
