@@ -45,6 +45,23 @@ class ThermalModel:
             #subpc.setType('python')
             #cpr_stage1 = self.create_cpr_stage_1(snes)
             #subpc.setPythonContext(cpr_stage1)
+        res = Function(self.W)
+        def my_monitor(ksp, its, rnorm):
+            residual = ksp.buildResidual() 
+            with res.dat.vec_wo as v:
+                residual.copy(v)
+            vec_p = res.sub(0).vector()
+            rnorm_p = sqrt(vec_p.inner(vec_p))
+            vec_E = res.sub(1).vector()
+            rnorm_E = sqrt(vec_E.inner(vec_E))
+            vec_o = res.sub(2).vector()
+            rnorm_o = sqrt(vec_o.inner(vec_o))
+            if self.comm.rank == 0:
+                print("  --> Pressure equation residual: %s" % (rnorm_p))
+                print("  --> Energy equation residual: %s" % (rnorm_E))
+                print("  --> Oil equation residual: %s" % (rnorm_o))
+            
+        solver.snes.ksp.setMonitor(my_monitor)
                    
         self.solver = solver
 
