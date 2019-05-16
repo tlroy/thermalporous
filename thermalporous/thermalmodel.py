@@ -36,7 +36,6 @@ class ThermalModel:
         
         self.problem = NonlinearVariationalProblem(self.F, self.u, self.bcs)
         solver = NonlinearVariationalSolver(self.problem, appctx=self.appctx, solver_parameters=self.solver_parameters)
-        
         #snes = solver.snes
         #if snes.ksp.pc.getType() == 'composite' and self.solver_parameters["mat_type"] == "aij": 
             #print("using aij CPR")
@@ -120,11 +119,73 @@ class ThermalModel:
             if self.comm.rank == 0:
                 print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". dt size: ", self.dt.values()[0]/24.0/3600.0)  
                 
+            
+                    
+            if self.comm.rank == 0:
+                print(" ")
+                    
+            while True:
+                try:
+                    self.solver.solve()
+                    if self.name == "Two-phase":
+                        print(np.max(u.dat.data[2]))
+                except exceptions.ConvergenceError:
+                    if self.name == "Two-phase":
+                        print(np.max(u.dat.data[2]))
+                    #if self.name == "Two-phase":
+                        #(pvec, Tvec, S_ovec) = u.split()
+                        #outfileS_o.write(S_ovec)
+                    #else:
+                        #(pvec, Tvec) = u.split()
+                    if self.comm.rank == 0:
+                        print(i_plot, "th plot")
+                    #outfilep.write(pvec)
+                    #outfileT.write(Tvec)
+                    #from IPython import embed; embed()
+                    self.dt.assign(self.dt.values()[0]*0.5)
+                    if self.comm.rank == 0:
+                        print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
+                    u.assign(u_)
+                    previous_fail = 1
+                    continue
+                break
+            # making sure 0<= S_o <=1
+            if self.name == "Two-phase":
+                
+                (p,T,S_o) = split(u)
+                mass_o = assemble(self.geo.phi*S_o*self.params.oil_rho(p,T)*dx)
+                if self.comm.rank == 0:
+                    print("Total oil mass in reservoir: ", mass_o)
+                Sat = u.dat.data[2]
+                #epsilon = 0.0
+                while False: #np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon: #
+                    print("------Negative saturation! Chopping time-step---------")
+                    self.dt.assign(self.dt.values()[0]*0.5)
+                    if self.comm.rank == 0:
+                        print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
+                    u.assign(u_)
+                    self.solver.solve()
+                    Sat = u.dat.data[2]
+                N = len(Sat)
+                Sat = np.minimum(Sat, np.ones(int(N)))
+                Sat = np.maximum(Sat, np.zeros(int(N)))
+                u.dat.data[2][...] = Sat    
+                
+            ## Print prod/inj rates    
             if self.case.name.startswith("Sources"):
                 current_inj_rate = assemble(self.case.deltas_inj*self.inj_rate*dx)
-                print("Total injection rate is ", current_inj_rate)
+                if self.comm.rank == 0:
+                    print("Total injection rate is ", current_inj_rate)
                 current_prod_rate = assemble(self.case.deltas_prod*self.prod_rate*dx)
-                print("Total production rate is ", current_prod_rate)
+                if self.comm.rank == 0:
+                    print("Total production rate is ", current_prod_rate)
+                if self.name == "Two-phase":
+                    current_oil_rate = assemble(self.case.deltas_prod*self.oil_rate*dx)
+                    if self.comm.rank == 0:
+                        print("Total oil production rate is ", current_oil_rate)
+                    current_water_rate = assemble(self.case.deltas_prod*self.water_rate*dx)
+                    if self.comm.rank == 0:
+                        print("Total water production rate is ", current_water_rate)
 
             if self.case.inj_wells:    #in cases with many wells, calculate individual rates is slow with assemble. In those cases, might be better to use SourceTerms instead
                 current_inj_rate_ = 0 
@@ -173,54 +234,9 @@ class ThermalModel:
                     if self.comm.rank == 0:
                         print("New production rate for well ", well['name'], " is ", current_prod_rate,
                         #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']], 
-                        )
-                    
-            if self.comm.rank == 0:
-                print(" ")
-                    
-            while True:
-                try:
-                    self.solver.solve()
-                    if self.name == "Two-phase":
-                        print(np.max(u.dat.data[2]))
-                except exceptions.ConvergenceError:
-                    if self.name == "Two-phase":
-                        print(np.max(u.dat.data[2]))
-                    #if self.name == "Two-phase":
-                        #(pvec, Tvec, S_ovec) = u.split()
-                        #outfileS_o.write(S_ovec)
-                    #else:
-                        #(pvec, Tvec) = u.split()
-                    if self.comm.rank == 0:
-                        print(i_plot, "th plot")
-                    #outfilep.write(pvec)
-                    #outfileT.write(Tvec)
-                    #from IPython import embed; embed()
-                    self.dt.assign(self.dt.values()[0]*0.5)
-                    print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
-                    u.assign(u_)
-                    previous_fail = 1
-                    continue
-                break
-            # making sure 0<= S_o <=1
-            if self.name == "Two-phase":
-                
-                Sat = u.dat.data[2]
-                #epsilon = 0.0
-                while False: #np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon: #
-                    print("------Negative saturation! Chopping time-step---------")
-                    self.dt.assign(self.dt.values()[0]*0.5)
-                    print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
-                    u.assign(u_)
-                    self.solver.solve()
-                    Sat = u.dat.data[2]
-                N = len(Sat)
-                Sat = np.minimum(Sat, np.ones(int(N)))
-                Sat = np.maximum(Sat, np.zeros(int(N)))
-                u.dat.data[2][...] = Sat    
-                
+                        )    
 
-            
+            #self.b = assemble(self.F)
             u_.assign(u)
             current_dt = self.dt.values()[0] 
             t += current_dt
@@ -316,6 +332,7 @@ class ThermalModel:
             self.resultprint("Average Linear iterations per time-step: ", avg_litdt)
             self.resultprint("Average Linear iteration per Nonlinear iteration: ", avg_litnit)
             self.resultprint("Total Linear iterations: ", sum(lits_vec))
+            self.resultprint("Total Nonlinear iterations: ", sum(nits_vec))
             self.resultprint("Number of time-steps: ", len(dt_vec))
             self.resultprint("Last Nonlinear iterations:", nits)
             self.resultprint("Last Linear iterations: ", lits)
