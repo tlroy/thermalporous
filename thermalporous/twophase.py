@@ -103,18 +103,24 @@ class TwoPhase(ThermalModel):
         K_facet = (K_x_facet*(abs(n[0]('+'))+abs(n[0]('-')))/2 + K_y_facet*(abs(n[1]('+'))+abs(n[1]('-')))/2) #need form to be symmetric wrt to '+' and '-'
         
         kT_facet = conditional(gt(avg(kT), 0.0), kT('+')*kT('-') / avg(kT), 0.0)        
+        
+        # weights for pressure and oil equations
+        p_w = (self.params.T_prod + self.params.T_inj)/2.
+        o_w = (self.params.T_prod + self.params.T_inj)/2.*(c_v_w+c_v_o)/2.
+       # p_w = 1.0
+       # o_w = 1.0
 
         ## Solve a coupled problem 
         # conservation of mass equation WATER - "pressure equation"
-        a_accum_w = phi*(water_rho(p,T)*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
-        a_flow_w = K_facet*conditional(gt(jump(p), 0.0), rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS
+        a_accum_w =p_w*phi*(water_rho(p,T)*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
+        a_flow_w = p_w*K_facet*conditional(gt(jump(p), 0.0), rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS
         # conservation of mass equation OIL - "saturation equation"
-        a_accum_o = phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
-        a_flow_o = K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(s)*jump(p)/Delta_h*dS
+        a_accum_o = o_w*phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
+        a_flow_o = o_w*K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(s)*jump(p)/Delta_h*dS
         
         ## WEIGHTED SUM - pressure equation
-        a_accum_w = c_v_w*a_accum_w + c_v_o*(phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*q*dx)
-        a_flow_w = c_v_w*a_flow_w + c_v_o*(K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS)
+        a_accum_w = c_v_w*a_accum_w + p_w*c_v_o*(phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*q*dx)
+        a_flow_w = c_v_w*a_flow_w + p_w*c_v_o*(K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS)
         
         # conservation of energy equation
         a_Eaccum = phi*c_v_w*(water_rho(p,T)*(1.0 - S_o)*T - water_rho(p_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(oil_rho(p,T)*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
@@ -137,13 +143,13 @@ class TwoPhase(ThermalModel):
             self.water_rate = water_rate
             tmp_o = self.case.deltas_prod*oil_rate
             tmp_w = self.case.deltas_prod*water_rate
-            self.F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx 
+            self.F -= p_w*c_v_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx + p_w*c_v_o*rhow_o*tmp_o*q*dx 
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
             # injection wells
             inj_rate = self.case.flow_rate_inj(p, T, phase = 'water')
             self.inj_rate = inj_rate
             tmp = self.case.deltas_inj*inj_rate
-            self.F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+            self.F -= p_w*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
             # heaters
             self.F -= self.case.deltas_heaters*self.params.U*(T_inj-T)*r*dx
@@ -157,14 +163,14 @@ class TwoPhase(ThermalModel):
             tmp_o =  well['delta']*oil_rate
             tmp_w = well['delta']*water_rate
             #self.F -= rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx
-            self.F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
+            self.F -= p_w*c_v_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx + p_w*c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
         for well in self.case.inj_wells:
             rate = self.case.flow_rate(p, T, well, phase = 'water') # only inject water
             well.update({'rate': rate})
             tmp = well['delta']*rate
             #self.F -= rhow*tmp*q*dx
-            self.F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+            self.F -= p_w*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
         for heater in self.case.heaters:
             tmp = heater['delta']
@@ -230,6 +236,11 @@ class TwoPhase(ThermalModel):
         z_flow_w = jump(p)/Delta_h - g*avg(water_rho(p,T))
         z_flow_o = jump(p)/Delta_h - g*avg(oil_rho(p,T))
 
+        # Weights for pressure and oil equations
+        p_w = (self.params.T_prod + self.params.T_inj)/2.
+        o_w = (self.params.T_prod + self.params.T_inj)/2.*(c_v_w+c_v_o)/2.
+        ##p_w = 1.0
+        ##o_w = 1.0
 
         ## Solve a coupled problem 
         # conservation of mass equation WATER - "pressure equation"
@@ -253,7 +264,7 @@ class TwoPhase(ThermalModel):
         a_advec_z = K_z_facet*conditional(gt(z_flow_w, 0.0), T('+')*rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), T('-')*rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*c_v_w*jump(r)*z_flow_w*dS_h + K_z_facet*conditional(gt(z_flow_o, 0.0), T('+')*rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v_o*jump(r)*z_flow_o*dS_h
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*(dS_v + dS_h)
 
-        a = a_accum_w + a_flow_w + a_flow_w_z + a_accum_o + a_flow_o + a_flow_o_z + a_Eaccum + a_advec + a_advec_z + a_diff
+        a = p_w*a_accum_w + p_w*a_flow_w + p_w*a_flow_w_z + o_w*a_accum_o + o_w*a_flow_o +o_w* a_flow_o_z + a_Eaccum + a_advec + a_advec_z + a_diff
         self.F = a 
 
         rhow_o = oil_rho(p, T)
@@ -269,13 +280,13 @@ class TwoPhase(ThermalModel):
             self.water_rate = water_rate
             tmp_o = self.case.deltas_prod*oil_rate
             tmp_w = self.case.deltas_prod*water_rate
-            self.F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx 
+            self.F -= p_w*c_v_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx + p_w*c_v_o*rhow_o*tmp_o*q*dx 
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
             # injection wells
             inj_rate = self.case.flow_rate_inj(p, T, phase = 'water')
             self.inj_rate = inj_rate
             tmp = self.case.deltas_inj*inj_rate
-            self.F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+            self.F -= p_w*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
             # heaters
             self.F -= self.case.deltas_heaters*self.params.U*(T_inj-T)*r*dx
@@ -290,14 +301,14 @@ class TwoPhase(ThermalModel):
             tmp_w = well['delta']*water_rate
             #self.F -= rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx
             # with weighted sum
-            self.F -= c_v_w*rhow_w*tmp_w*q*dx + rhow_o*tmp_o*s*dx + c_v_o*rhow_o*tmp_o*q*dx 
+            self.F -= p_w*c_v_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx + p_w*c_v_o*rhow_o*tmp_o*q*dx
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
         for well in self.case.inj_wells:
             rate = self.case.flow_rate(p, T, well, phase = 'water') # only inject water
             well.update({'rate': rate})
             tmp = well['delta']*rate
             #self.F -= rhow*tmp*q*dx
-            self.F -= c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+            self.F -= p_w*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
         for heater in self.case.heaters:
             tmp = heater['delta']
