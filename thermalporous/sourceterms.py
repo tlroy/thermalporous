@@ -15,6 +15,14 @@ class SourceTerms():
         self.mesh = geo.mesh
         self.geo = geo
         self.params = params
+        try:
+            self.params.prod_rate
+        except AttributeError:
+            self.params.prod_rate = self.params.rate
+        try:
+            self.params.inj_rate
+        except AttributeError:
+            self.params.inj_rate = self.params.rate
         if constant_rate:
             self.flow_rate_inj = self.flow_rate_inj_constant
             self.flow_rate_prod = self.flow_rate_prod_constant
@@ -151,7 +159,7 @@ class SourceTerms():
         #Ignoring gravity for now
         import math
         bhp = self.params.p_inj
-        max_rate = self.params.rate
+        max_rate = self.params.inj_rate
         if phase == 'oil':
             mu = self.params.oil_mu(T)
         elif phase == 'water':
@@ -179,7 +187,7 @@ class SourceTerms():
         #Ignoring gravity for now
         import math
         bhp = self.params.p_prod
-        max_rate = -self.params.rate
+        max_rate = -self.params.prod_rate
         if phase == 'oil':
             mu = self.params.oil_mu(T)
         elif phase == 'water':
@@ -203,16 +211,16 @@ class SourceTerms():
         return rate
 
     def flow_rate_prod_constant(self, p, T, phase = 'oil'):
-        return -self.params.rate
+        return -self.params.prod_rate
 
     def flow_rate_inj_constant(self, p, T, phase = 'oil'):
-        return self.params.rate
+        return self.params.inj_rate
 
     def flow_rate_twophase_prod_(self, p, T, S_o = 1.0):
         #volumetric flow rate of wells using Peaceman model
         import math
         bhp = self.params.p_prod
-        max_rate = -self.params.rate
+        max_rate = -self.params.prod_rate
         #print(assemble(well['delta']*T*dx))
         oil_mu = self.params.oil_mu
         water_mu = self.params.water_mu
@@ -242,7 +250,7 @@ class SourceTerms():
         #volumetric flow rate of wells using Peaceman model
         import math  
         bhp = self.params.p_prod
-        max_rate = -self.params.rate
+        max_rate = -self.params.prod_rate
         #print(assemble(well['delta']*T*dx))
         oil_mu = self.params.oil_mu
         water_mu = self.params.water_mu
