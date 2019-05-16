@@ -21,7 +21,7 @@ class SPE10Model3D(BoxGeo):
         coords = project(self.mesh.coordinates, Vvec).dat.data  
         
         # Creat DG function for porosity field
-        self.phi = Function(self.V)
+        self.phi = Function(self.V, name = 'porosity')
         # load data for porosity
         phi_array = np.load(dirname + "/../data/slice_phi.npy")
         
@@ -34,7 +34,7 @@ class SPE10Model3D(BoxGeo):
             return phi_array[i, j, k]
         self.phi.dat.data[...] = phi_coordtoijk(coords[:, 0], coords[:, 1], coords[:, 2])
         
-        self.K_x = Function(self.V)
+        self.K_x = Function(self.V, name = 'perm_x')
         # load data for permeability_x
         permx_array = np.load(dirname + "/../data/slice_perm_x.npy")
         
@@ -45,7 +45,7 @@ class SPE10Model3D(BoxGeo):
             return permx_array[i, j, k]
         self.K_x.dat.data[...] = permx_coordtoijk(coords[:, 0], coords[:, 1], coords[:, 2])
         
-        self.K_y = Function(self.V)
+        self.K_y = Function(self.V, name = 'perm_y')
         # load data for permeability_y
         permy_array = np.load(dirname + "/../data/slice_perm_y.npy")
         
@@ -56,7 +56,7 @@ class SPE10Model3D(BoxGeo):
             return permy_array[i, j, k]
         self.K_y.dat.data[...] = permy_coordtoijk(coords[:, 0], coords[:, 1], coords[:, 2])
         
-        self.K_z = Function(self.V)
+        self.K_z = Function(self.V, name = 'perm_z')
         # load data for permeability_z
         permz_array = np.load(dirname + "/../data/slice_perm_z.npy")
         
@@ -68,7 +68,7 @@ class SPE10Model3D(BoxGeo):
         self.K_z.dat.data[...] = permz_coordtoijk(coords[:, 0], coords[:, 1], coords[:, 2])
 
         # Define conductivity field
-        self.kT = Function(self.V)
+        self.kT = Function(self.V, name = 'conductivity')
         self.kT = project(self.phi*self.params.ko + (1-self.phi)*self.params.kr, self.V)
         #print("Rock conductivity is: ", self.params.kr)
         

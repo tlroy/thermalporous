@@ -28,7 +28,7 @@ class SPE10Model(RectangleGeo):
         coords = project(self.mesh.coordinates, Vvec).dat.data  
         
         # Create DG function for porosity field
-        self.phi = Function(self.V)
+        self.phi = Function(self.V, name = "porosity")
         phi_array = np.load(dirname + "/../data/slice_phi.npy")
         
         phi_array = phi_array + 1e-10 # removing rock only cells
@@ -49,7 +49,7 @@ class SPE10Model(RectangleGeo):
             return permx_array[i, j]
         self.K_x.dat.data[...] = permx_coordtoij(coords[:, 0], coords[:, 1])
         
-        self.K_y = Function(self.V)
+        self.K_y = Function(self.V, name = "perm_y")
         # load data for permeability_y
         permy_array = np.load(dirname + "/../data/slice_perm_y.npy")
         
