@@ -36,15 +36,7 @@ class ThermalModel:
         
         self.problem = NonlinearVariationalProblem(self.F, self.u, self.bcs)
         solver = NonlinearVariationalSolver(self.problem, appctx=self.appctx, solver_parameters=self.solver_parameters)
-        #snes = solver.snes
-        #if snes.ksp.pc.getType() == 'composite' and self.solver_parameters["mat_type"] == "aij": 
-            #print("using aij CPR")
-            #subpc = snes.ksp.pc.getCompositePC(0)
-            ##subpcksp = snes.ksp.pc.getCompositePC(0).getKSP()
-            ##subpc = subpcksp.getPC()
-            #subpc.setType('python')
-            #cpr_stage1 = self.create_cpr_stage_1(snes)
-            #subpc.setPythonContext(cpr_stage1)
+
         res = Function(self.W)
         def my_monitor(ksp, its, rnorm):
             residual = ksp.buildResidual() 

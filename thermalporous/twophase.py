@@ -445,27 +445,6 @@ class TwoPhase(ThermalModel):
         if self.solver_parameters is None:
             self.solver_parameters = parameters
 
-
-    #def create_cpr_stage_1(self, snes): 
-        #from petsc4py import PETSc
-        ## Set fieldsplit indices
-        #fdofs = self.W.dof_dset.field_ises  # TODO: should this be local_ises?
-        #s_is = PETSc.IS().createGeneral(np.concatenate([iset.indices for iset in fdofs[1:]]))
-        #p_is = fdofs[0]
-        #cpr_stage1 = CPRStage1(snes, s_is, p_is, True)
-        #return cpr_stage1
-
-
-    def create_cpr_stage_1(self, snes):
-        from petsc4py import PETSc
-        # Set fieldsplit indices
-        fdofs = self.W.dof_dset.field_ises  # TODO: should this be local_ises?
-        s_is = fdofs[-1]
-        pt_is = PETSc.IS().createGeneral(np.concatenate([iset.indices for iset in fdofs[:-1]]))
-        p_is = fdofs[0]
-        t_is = fdofs[1]
-        cpr_stage1 = CPTRStage1(snes, s_is, pt_is, p_is, t_is)
-        return cpr_stage1
  
     @cached_property
     def appctx(self):

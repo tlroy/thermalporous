@@ -365,15 +365,6 @@ class SinglePhase(ThermalModel):
         
         if self.solver_parameters is None:
             self.solver_parameters = parameters
-
-    def create_cpr_stage_1(self, snes):
-        # Set fieldsplit indices
-        fdofs = self.W.dof_dset.field_ises  # TODO: should this be local_ises?
-        s_is = fdofs[1]
-        p_is = fdofs[0]
-        TrueIMPES = True
-        cpr_stage1 = CPRStage1(snes, s_is, p_is, TrueIMPES)
-        return cpr_stage1
  
     @cached_property
     def appctx(self):
