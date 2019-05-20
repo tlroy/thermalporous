@@ -60,7 +60,7 @@ class ThermalModel:
                     with res.dat.vec_wo as v:
                         residual.copy(v)
                     vec_M = res.sub(0).vector()
-                    rnorm_M = sqrt(vec_p.inner(vec_M))
+                    rnorm_M = sqrt(vec_M.inner(vec_M))
                     vec_E = res.sub(1).vector()
                     rnorm_E = sqrt(vec_E.inner(vec_E))
                     if self.comm.rank == 0:
