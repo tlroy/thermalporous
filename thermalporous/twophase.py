@@ -20,6 +20,7 @@ class TwoPhase(ThermalModel):
         self.small_dt_start = small_dt_start
         self.vector = vector
         self.solver_parameters = solver_parameters
+        self.scaled_eqns = True
         if self.geo.dim == 2:
             self.init_variational_form = self.init_variational_form_2D
         elif self.geo.dim == 3:
@@ -105,29 +106,31 @@ class TwoPhase(ThermalModel):
         kT_facet = conditional(gt(avg(kT), 0.0), kT('+')*kT('-') / avg(kT), 0.0)        
         
         # weights for pressure and oil equations
-        p_w = (self.params.T_prod + self.params.T_inj)/2.
-        o_w = (self.params.T_prod + self.params.T_inj)/2.*(c_v_w+c_v_o)/2.
-       # p_w = 1.0
-       # o_w = 1.0
+        if self.scaled_eqns:
+            p_w = self.params.T_prod
+            o_w = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
+        else:
+            p_w = 1.0
+            o_w = 1.0
 
         ## Solve a coupled problem 
         # conservation of mass equation WATER - "pressure equation"
-        a_accum_w =p_w*phi*(water_rho(p,T)*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
-        a_flow_w = p_w*K_facet*conditional(gt(jump(p), 0.0), rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS
+        a_accum_w =phi*(water_rho(p,T)*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
+        a_flow_w = K_facet*conditional(gt(jump(p), 0.0), rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS
         # conservation of mass equation OIL - "saturation equation"
-        a_accum_o = o_w*phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
-        a_flow_o = o_w*K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(s)*jump(p)/Delta_h*dS
+        a_accum_o = phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
+        a_flow_o = K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(s)*jump(p)/Delta_h*dS
         
         ## WEIGHTED SUM - pressure equation
-        a_accum_w = c_v_w*a_accum_w + p_w*c_v_o*(phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*q*dx)
-        a_flow_w = c_v_w*a_flow_w + p_w*c_v_o*(K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS)
+        a_accum_w = c_v_w*a_accum_w + c_v_o*(phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*q*dx)
+        a_flow_w = c_v_w*a_flow_w + c_v_o*(K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS)
         
         # conservation of energy equation
         a_Eaccum = phi*c_v_w*(water_rho(p,T)*(1.0 - S_o)*T - water_rho(p_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(oil_rho(p,T)*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
         a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), T('-')*rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*c_v_w*jump(r)*jump(p)/Delta_h*dS + K_facet*conditional(gt(jump(p), 0.0), T('+')*rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v_o*jump(r)*jump(p)/Delta_h*dS
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*dS
 
-        a = a_accum_w + a_flow_w + a_accum_o + a_flow_o + a_Eaccum + a_diff + a_advec
+        a = p_w*a_accum_w + p_w*a_flow_w + o_w*a_accum_o + o_w*a_flow_o + a_Eaccum + a_diff + a_advec
         self.F = a 
         
         rhow_o = oil_rho(p, T)
@@ -238,7 +241,7 @@ class TwoPhase(ThermalModel):
 
         # Weights for pressure and oil equations
         p_w = (self.params.T_prod + self.params.T_inj)/2.
-        o_w = (self.params.T_prod + self.params.T_inj)/2.*(c_v_w+c_v_o)/2.
+        o_w = (self.params.T_prod + self.params.T_inj)/2.*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
         ##p_w = 1.0
         ##o_w = 1.0
 
