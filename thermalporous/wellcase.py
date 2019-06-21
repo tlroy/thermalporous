@@ -99,9 +99,7 @@ class WellCase():
             max_rate = rate
             self.injcount +=1
 
-        return {'name': welltype + current_count, 'bhp': bhp, 'location': w,
-                #'node': node,
-                'delta': delta, 'max_rate': max_rate, 'rate': 0.0}
+        return {'name': welltype + current_count, 'bhp': bhp, 'location': w, 'delta': delta, 'max_rate': max_rate, 'rate': 0.0}
 
     def well_circle(self, w):
         xw = w[0]
@@ -129,7 +127,6 @@ class WellCase():
         delta.assign(interpolate(conditional(pow(x-xw,2)+pow(y-yw,2)<pow(radius,2), conditional(abs(z-zw)<height, 1.0, 0.0)*exp(-(1.0/(-pow(x-xw,2)-pow(y-yw,2)+pow(radius,2)))), 0.0), self.V))
         normalise = assemble(delta*dx)
         if normalise == 0:  
-            #print("Using delta")
             delta = self.well_delta(w)
         else:
             delta.assign(delta/normalise)
@@ -142,7 +139,7 @@ class WellCase():
         if node_w >= 0:
             vec[node_w] = 1.0
         delta.vector().set_local(vec)
-        #normalise = assemble(delta*dx)
+        #normalise = assemble(delta*dx) # This would work for non-rectangular cells
         if self.geo.dim == 2:
             normalise = self.geo.Dx*self.geo.Dy
         elif self.geo.dim == 3:
@@ -150,8 +147,7 @@ class WellCase():
         return delta.assign(delta/normalise)
     
     def flow_rate_(self, p, T, well, phase = 'oil'):
-        #volumetric flow rate of wells using Peaceman model
-        #Ignoring gravity for now
+        #volumetric flow rate of wells using Peaceman model (no gravity)
         import math
         bhp = well['bhp']
         max_rate = well['max_rate']
@@ -169,7 +165,6 @@ class WellCase():
         Dy = 5.0 # 5
         #ro = 0.14*(self.geo.Dx**2 + self.geo.Dy**2)**0.5 # equivalent radius
         ro = 0.28*((K_y/K_x)**0.5 * Dx**2 + (K_x/K_y)**0.5 * Dy**2)**0.5 / ( (K_y/K_x)**0.25 + (K_x/K_y)**0.25)
-        #ro = 2.5
         Ke = (K_x*K_y)**0.5 #effective permeability
         is_prod = max_rate<0.0
         factor = 2*pi*h*Ke/ln(ro/rw)/mu
@@ -204,7 +199,6 @@ class WellCase():
         Dy = 5.0 # 5
         #ro = 0.14*(self.geo.Dx**2 + self.geo.Dy**2)**0.5 # equivalent radius
         ro = 0.28*((K_y/K_x)**0.5 * Dx**2 + (K_x/K_y)**0.5 * Dy**2)**0.5 / ( (K_y/K_x)**0.25 + (K_x/K_y)**0.25)
-        #ro = 2.5
         Ke = (K_x*K_y)**0.5 #effective permeability
         is_prod = max_rate<0.0
         factor = 2*pi*h*Ke/ln(ro/rw)/mu
@@ -237,7 +231,6 @@ class WellCase():
         Dy = 5.0 # 5
         #ro = 0.14*(self.geo.Dx**2 + self.geo.Dy**2)**0.5 # equivalent radius
         ro = 0.28*((K_y/K_x)**0.5 * Dx**2 + (K_x/K_y)**0.5 * Dy**2)**0.5 / ( (K_y/K_x)**0.25 + (K_x/K_y)**0.25)
-        #ro = 2.5
         Ke = (K_x*K_y)**0.5 #effective permeability
         is_prod = max_rate<0.0
         factor = 2*pi*h*Ke/ln(ro/rw)/mu

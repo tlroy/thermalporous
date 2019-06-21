@@ -70,7 +70,6 @@ class SPE10Model3D(BoxGeo):
         # Define conductivity field
         self.kT = Function(self.V, name = 'conductivity')
         self.kT = project(self.phi*self.params.ko + (1-self.phi)*self.params.kr, self.V)
-        #print("Rock conductivity is: ", self.params.kr)
         
         if self.save is True:
             File("results/porosity.pvd").write(self.phi)

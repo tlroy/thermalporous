@@ -16,5 +16,5 @@ class HomogeneousBoxGeo(BoxGeo):
 
         # Define conductivity field
         self.kT = Constant(0.0)
-        self.kT.assign(self.phi*self.params.ko + (1-self.phi)*self.params.kr) #need to make this vary with water as well
+        self.kT.assign(self.phi*self.params.ko + (1-self.phi)*self.params.kr) #We redefine this in the multiphase case such that it depends on saturation
 

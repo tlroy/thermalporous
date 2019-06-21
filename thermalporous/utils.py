@@ -6,7 +6,7 @@ from mpi4py import MPI
 def GetNodeClosestToCoordinate(V, coord):
     VV = VectorFunctionSpace(V.mesh(), V.ufl_element())
     coordinates = interpolate(SpatialCoordinate(V.mesh()), VV).vector()[:]
-    # we need to do something clever in parallel
+    # we need to do something clever in parallel if point is equidistant
     closest_dist = 100000
     closest_dof = 0
     

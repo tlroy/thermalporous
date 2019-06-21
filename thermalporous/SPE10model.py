@@ -62,7 +62,6 @@ class SPE10Model(RectangleGeo):
         # Define conductivity field
         self.kT = Function(self.V)
         self.kT = project(self.phi*self.params.ko + (1-self.phi)*self.params.kr, self.V)
-        #print("Rock conductivity is: ", self.params.kr)
         
         if self.save is True:
             File("results/permeability_x.pvd").write(self.K_x)

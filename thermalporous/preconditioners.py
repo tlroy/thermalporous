@@ -29,9 +29,7 @@ class ConvDiffSchurPC(PCBase):
 
         T = TrialFunction(V)
         r = TestFunction(V)
-        # Handle vector and tensor-valued spaces.
         
-        # Maybe don't have to reconstruct everything?
         dt = appctx["dt"]
         K_x = geo.K_x
         K_y = geo.K_y
@@ -169,13 +167,10 @@ class ConvDiffSchurTwoPhasesPC(PCBase):
 
         T = TrialFunction(V)
         r = TestFunction(V)
-        # Handle vector and tensor-valued spaces.
-        
-        # Maybe don't have to reconstruct everything?
+
         dt = appctx["dt"]
         K_x = geo.K_x
         K_y = geo.K_y
-        #kT = geo.kT
         phi = geo.phi
         kT = phi*(S0*params.ko + (1-S0)*params.kw) + (1-phi)*params.kr
         c_v_o = params.c_v_o
@@ -244,7 +239,6 @@ class ConvDiffSchurTwoPhasesPC(PCBase):
         # Source terms with local deltas
         for well in case.prod_wells:
             [rate, water_rate, oil_rate] = case.flow_rate_twophase(p0, T0, well, S_o = S0)
-            #well.update({'rate': rate})
             tmp_o =  well['delta']*oil_rate
             tmp_w = well['delta']*water_rate
             a -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
@@ -560,7 +554,6 @@ class CTRStage1PC(PCBase):
         else:
             W = V*V
         
-        #from IPython import embed; embed()
         fdofs = W.dof_dset.field_ises  # TODO: should this be local_ises?
         self.s_is = PETSc.IS().createGeneral(np.concatenate([iset.indices for iset in fdofs[0:2:1]]))
         self.p_is = fdofs[1]

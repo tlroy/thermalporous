@@ -10,7 +10,6 @@ class BoxGeo():
         self.Length = Length # default is 365.76m, i.e. 1200 ft for SPE10
         self.Length_y = Length_y
         self.Length_z = Length_z
-        #self.Length = 10.0
         self.mesh = self.generate_mesh(Nx, Ny, Nz)
         self.comm = self.mesh.comm
         self.init_function_space()
@@ -43,5 +42,3 @@ class BoxGeo():
         
     def init_function_space(self):
         self.V = FunctionSpace(self.mesh, "DQ", 0)
-        #self.VT = FunctionSpace(self.mesh, "DQ", 0)
-        #self.W = self.V*self.VT   

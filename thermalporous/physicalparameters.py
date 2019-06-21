@@ -68,7 +68,7 @@ class PhysicalParameters():
         return (E_0 + E_1*Tc + E_2*Tc**2 + E_3*Tc**3 + E_4*Tc**4 + E_5*Tc**5)*e**(Cw*(pp-E_7))/(1 + E_6*Tc)
     
     def water_mu(self, T):
-        # Grabowski's formula
+        # Grabowski's formula (Grabowski 1979)
         Aw = 2.1850
         Bw = 0.04012
         Cw = 5.1547E-6

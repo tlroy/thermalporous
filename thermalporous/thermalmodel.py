@@ -2,8 +2,6 @@ import numpy as np
 
 from firedrake import *
 
-#import thermalporous.utils as utils
-
 
 class ThermalModel:
         
@@ -99,8 +97,7 @@ class ThermalModel:
         t_init = 1.0*24.0*3600.0
         t_rest = 50.0*24.0*3600.0
         t_prod = 0.0*24.0*3600.0
-        end = self.end*24.0*3600.0
-        #end = dt*nt # Final time
+        end = self.end*24.0*3600.0 # Final time
         
         t = 0.0
         dt_counter = 0 #for average iteration count
@@ -149,22 +146,15 @@ class ThermalModel:
                     
             while True:
                 try:
-                    self.solver.solve()
+                    self.solver.solve() 
+                    
                     if self.name == "Two-phase":
                         print(np.max(u.dat.data[2]))
                 except exceptions.ConvergenceError:
                     if self.name == "Two-phase":
                         print(np.max(u.dat.data[2]))
-                    #if self.name == "Two-phase":
-                        #(pvec, Tvec, S_ovec) = u.split()
-                        #outfileS_o.write(S_ovec)
-                    #else:
-                        #(pvec, Tvec) = u.split()
                     if self.comm.rank == 0:
                         print(i_plot, "th plot")
-                    #outfilep.write(pvec)
-                    #outfileT.write(Tvec)
-                    #from IPython import embed; embed()
                     self.dt.assign(self.dt.values()[0]*0.5)
                     if self.comm.rank == 0:
                         print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
@@ -172,6 +162,7 @@ class ThermalModel:
                     previous_fail = 1
                     continue
                 break
+            
             # making sure 0<= S_o <=1
             if self.name == "Two-phase":
                 
@@ -184,11 +175,9 @@ class ThermalModel:
                 local_chop = (np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon,)
                 from mpi4py import MPI
                 global_chop = (False,)
-                #print("local",self.comm.rank, local_chop)
                 global_chop = self.comm.reduce(local_chop, op=MPI.MAX, root=0)
-                #print("global",self.comm.rank, global_chop)
                 global_chop = self.comm.bcast(global_chop, root=0)
-                #print("global", self.comm.rank, global_chop)
+                
                 while global_chop[0]: #False: #
                     if self.comm.rank == 0:
                         print("------Negative saturation! Chopping time-step---------")
@@ -310,9 +299,6 @@ class ThermalModel:
 
             
             # update time-step
-            
-            
-            #if self.comm.rank == 0:
             current_nits = self.solver.snes.getIterationNumber() # can use this for adaptive time-step
             current_lits = self.solver.snes.getLinearSolveIterations()
             if self.comm.rank == 0:
@@ -323,7 +309,7 @@ class ThermalModel:
                 dt_counter += 1
                 nits_vec.append(current_nits)
                 lits_vec.append(current_lits)
-            if self.geo.name.startswith("SPE10"):
+            if self.geo.name.startswith("SPE10"): # Simple heuristic for an adaptive time-step
                 if current_nits < 6:# and previous_fail == 0:
                     factor = 1 + min(1.0, (6 - current_nits)**2/3**2)
                     self.dt.assign(min(dt_inj,current_dt*factor))
@@ -358,7 +344,7 @@ class ThermalModel:
             self.resultprint("Geo model: ", self.geo.name)
             self.resultprint("Test case: ", self.case.name)
             self.resultprint("Max time-step: ", self.maxdt)
-            self.resultprint("Final time: ", t/24.0/3600.0)#(t-self.dt.values()[0])/24.0/3600.0)
+            self.resultprint("Final time: ", t/24.0/3600.0)
                 
             # Print results
             nits = self.solver.snes.getIterationNumber()

@@ -58,7 +58,6 @@ class TwoPhase(ThermalModel):
         mesh = self.mesh          
         K_x = self.geo.K_x
         K_y = self.geo.K_y
-        #kT = self.geo.kT # need to change this to include water
         ko = self.params.ko
         kw = self.params.kw
         kr = self.params.kr
@@ -186,7 +185,6 @@ class TwoPhase(ThermalModel):
         K_x = self.geo.K_x
         K_y = self.geo.K_y
         K_z = self.geo.K_z
-        #kT = self.geo.kT # need to change this to include water
         ko = self.params.ko
         kw = self.params.kw
         kr = self.params.kr
