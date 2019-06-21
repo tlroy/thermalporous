@@ -180,15 +180,40 @@ class ThermalModel:
                 if self.comm.rank == 0:
                     print("Total oil mass in reservoir: ", mass_o)
                 Sat = u.dat.data[2]
-                #epsilon = 0.0
-                while False: #np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon: #
-                    print("------Negative saturation! Chopping time-step---------")
+                epsilon = 1e-20
+                local_chop = (np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon,)
+                from mpi4py import MPI
+                global_chop = (False,)
+                #print("local",self.comm.rank, local_chop)
+                global_chop = self.comm.reduce(local_chop, op=MPI.MAX, root=0)
+                #print("global",self.comm.rank, global_chop)
+                global_chop = self.comm.bcast(global_chop, root=0)
+                #print("global", self.comm.rank, global_chop)
+                while global_chop[0]: #False: #
+                    if self.comm.rank == 0:
+                        print("------Negative saturation! Chopping time-step---------")
                     self.dt.assign(self.dt.values()[0]*0.5)
                     if self.comm.rank == 0:
                         print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
                     u.assign(u_)
-                    self.solver.solve()
+                    try:
+                        self.solver.solve()
+                    except exceptions.ConvergenceError:
+                        print(np.max(u.dat.data[2]))
+                        self.dt.assign(self.dt.values()[0]*0.5)
+                        if self.comm.rank == 0:
+                            print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
+                        u.assign(u_)
+                        previous_fail = 1
+                        continue
+                    break
                     Sat = u.dat.data[2]
+                    local_chop = (np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon,)
+                    global_chop = (False,)
+                    global_chop = self.comm.reduce(local_chop, op=MPI.MAX, root=0)
+                    global_chop = self.comm.bcast(global_chop, root=0)
+                    
+                    
                 N = len(Sat)
                 Sat = np.minimum(Sat, np.ones(int(N)))
                 Sat = np.maximum(Sat, np.zeros(int(N)))
