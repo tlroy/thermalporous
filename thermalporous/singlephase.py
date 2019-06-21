@@ -95,6 +95,12 @@ class SinglePhase(ThermalModel):
         
         kT_facet = conditional(gt(avg(kT), 0.0), kT('+')*kT('-') / avg(kT), 0.0)        
 
+        # Weight for mass equation
+        if False:
+            m_w = c_v*self.params.T_prod
+        else:
+            m_w = 1.0
+
         ## Solve a coupled problem 
         # conservation of mass equation
         a_accum = phi*(oil_rho(p,T) - oil_rho(p_,T_))/self.dt*q*dx
@@ -104,8 +110,8 @@ class SinglePhase(ThermalModel):
         a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v*jump(r)*jump(p)/Delta_h*dS
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*dS
 
-        a = a_accum + a_flow + a_Eaccum + a_diff + a_advec
-        self.F = a 
+        a = m_w*a_accum + m_w*a_flow + a_Eaccum + a_diff + a_advec
+        self.F = a
 
         rhow_o = oil_rho(p, T)
         rhow = oil_rho(p, T_inj)
@@ -116,13 +122,13 @@ class SinglePhase(ThermalModel):
             prod_rate = self.case.flow_rate_prod(p, T)
             self.prod_rate = prod_rate
             tmp = self.case.deltas_prod*prod_rate
-            self.F -= rhow_o*tmp*q*dx
+            self.F -= m_w*rhow_o*tmp*q*dx
             self.F -= rhow_o*tmp*c_v*T*r*dx
             # injection wells
             inj_rate = self.case.flow_rate_inj(p, T)
             self.inj_rate = inj_rate
             tmp = self.case.deltas_inj*inj_rate
-            self.F -= rhow*tmp*q*dx
+            self.F -= m_w*rhow*tmp*q*dx
             self.F -= rhow*tmp*c_v*T_inj*r*dx
             # heaters
             self.F -= self.case.deltas_heaters*self.params.U*(T_inj-T)*r*dx
@@ -132,13 +138,13 @@ class SinglePhase(ThermalModel):
             rate = self.case.flow_rate(p, T, well)
             well.update({'rate': rate})
             tmp =  well['delta']*rate
-            self.F -= rhow_o*tmp*q*dx
+            self.F -= m_w*rhow_o*tmp*q*dx
             self.F -= rhow_o*tmp*c_v*T*r*dx
         for well in self.case.inj_wells:
             rate = self.case.flow_rate(p, T, well)
             well.update({'rate': rate})
             tmp = well['delta']*rate
-            self.F -= rhow*tmp*q*dx
+            self.F -= m_w*rhow*tmp*q*dx
             self.F -= rhow*tmp*c_v*T_inj*r*dx
         for heater in self.case.heaters:
             tmp = heater['delta']
