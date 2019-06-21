@@ -240,10 +240,12 @@ class TwoPhase(ThermalModel):
         z_flow_o = jump(p)/Delta_h - g*avg(oil_rho(p,T))
 
         # Weights for pressure and oil equations
-        p_w = (self.params.T_prod + self.params.T_inj)/2.
-        o_w = (self.params.T_prod + self.params.T_inj)/2.*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
-        ##p_w = 1.0
-        ##o_w = 1.0
+        if self.scaled_eqns:
+            p_w = self.params.T_prod
+            o_w = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
+        else:
+            p_w = 1.0
+            o_w = 1.0
 
         ## Solve a coupled problem 
         # conservation of mass equation WATER - "pressure equation"
