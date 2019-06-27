@@ -263,71 +263,92 @@ class SinglePhase(ThermalModel):
             self.idorder = "temperature-pressure ordering for fieldsplit"
             
         parameters = {
-              "snes_type": "newtonls",
-              "snes_monitor": True,
-              "snes_converged_reason": True, 
-              "snes_max_it": 15,
-              #"snes_rtol": 1e-10,
-              #"snes_view": True,
-              
-              "ksp_type": "fgmres",
-              #"ksp_view": True,
-              #"ksp_monitor_true_residual": True,
-              #"ksp_monitor": True,
-              "ksp_converged_reason": True, 
-              
-              #"ksp_pc_side": "right",
-              }
-        
-        v_cycle = {"ksp_type": "preonly",
-                   "pc_type": "hypre",
-                   "pc_hypre_type" : "boomeramg",
-                   "pc_hypre_boomeramg_max_iter": 1,
-                   }
-        
-       
-        pc_cpr = {"pc_type": "composite",
-              "pc_composite_type": "multiplicative",
-              #"pc_composite_pcs": "python,ilu",
-              "pc_composite_pcs": "python,bjacobi",
+                "snes_type": "newtonls",
+                "snes_monitor": None,
+                "snes_converged_reason": None, 
+                "snes_max_it": 15,
 
-              "sub_0_pc_python_type": "thermalporous.preconditioners.CPRStage1PC",
-              "sub_0_cpr_stage1": v_cycle,
-              
-              #"sub_1_pc_type": "ilu",
-              #"sub_1_pc_factor_levels": 1,
-              
-              "sub_1_pc_bjacobi_blocks": 1,
-              "sub_1_sub_pc_type": "ilu",
-              "sub_1_sub_pc_factor_levels": 0,
-              "mat_type": "aij",
-              }
-        
-        pc_fieldsplit = {"pc_type": "fieldsplit",
-              "pc_fieldsplit_0_fields": f0,
-              "pc_fieldsplit_1_fields": f1,
-              
-              #"pc_fieldsplit_type": "multiplicative",
-              "pc_fieldsplit_type": "schur",
-              "pc_fieldsplit_schur_fact_type": "FULL",
-              #"pc_fieldsplit_schur_fact_type": "upper",
-              #"pc_fieldsplit_schur_fact_type": "lower",
-              #"pc_fieldsplit_schur_fact_type": "diag",
-              
-              "fieldsplit_0": v_cycle,    
-              
-              #"pc_fieldsplit_schur_precondition": "selfp",
-              #"pc_fieldsplit_schur_precondition": "a11",
-              "fieldsplit_1_ksp_type": "preonly",
-              "fieldsplit_1_pc_type": "python",
-              "fieldsplit_1_pc_python_type": "thermalporous.preconditioners.ConvDiffSchurPC",
-              "fieldsplit_1_schur": v_cycle,
-              
-              
-              #"fieldsplit_0_ksp_monitor_true_residual": True,
-              #"fieldsplit_1_ksp_monitor_true_residual": True,
-              
-              }
+                "ksp_type": "fgmres",
+                "ksp_converged_reason": None, 
+
+                "ksp_max_it": 200,
+                "ksp_gmres_restart": 200,
+                }
+
+        v_cycle = {"ksp_type": "preonly",
+                    "pc_type": "hypre",
+                    "pc_hypre_type" : "boomeramg",
+                    "pc_hypre_boomeramg_max_iter": 1,
+                    }   
+
+        pc_fieldsplit_cd = {"pc_type": "fieldsplit",      
+                "pc_fieldsplit_type": "schur",
+                "pc_fieldsplit_schur_fact_type": "FULL",
+
+                "fieldsplit_0": v_cycle,    
+
+                "fieldsplit_1_ksp_type": "preonly",
+                "fieldsplit_1_pc_type": "python",
+                "fieldsplit_1_pc_python_type": "thermalporous.preconditioners.ConvDiffSchurPC",
+                "fieldsplit_1_schur": v_cycle,
+                    }
+
+
+        pc_fieldsplit_selfp = {"pc_type": "fieldsplit",      
+                "pc_fieldsplit_type": "schur",
+                "pc_fieldsplit_schur_fact_type": "FULL",
+                "pc_fieldsplit_schur_precondition": "selfp",
+
+                "fieldsplit_0": v_cycle,    
+                "fieldsplit_1": v_cycle,
+                    }
+
+        pc_fieldsplit_a11 = {"pc_type": "fieldsplit",      
+                "pc_fieldsplit_type": "schur",
+                "pc_fieldsplit_schur_fact_type": "FULL",
+                "pc_fieldsplit_schur_precondition": "a11",
+
+                "fieldsplit_0": v_cycle,    
+                "fieldsplit_1": v_cycle,
+                    }
+
+
+        pc_cpr = {"pc_type": "composite",
+                "pc_composite_type": "multiplicative",
+                "pc_composite_pcs": "python,bjacobi",
+
+                "sub_0_pc_python_type": "thermalporous.preconditioners.CPRStage1PC",
+                "sub_0_cpr_stage1": v_cycle,
+
+                "sub_1_pc_bjacobi_blocks": 1,
+                "sub_1_sub_pc_type": "ilu",
+                "sub_1_sub_pc_factor_levels": 0,
+                "mat_type": "aij",
+                }
+
+        pc_cpr_gmres = {"pc_type": "composite",
+                "pc_composite_type": "multiplicative",
+                "pc_composite_pcs": "fieldsplit,bjacobi",
+                
+                "sub_0_pc_fieldsplit_type": "additive",
+                "sub_0_fieldsplit_0": v_cycle,    
+                "sub_0_fieldsplit_1_ksp_type": "gmres",
+                "sub_0_fieldsplit_1_ksp_max_it": 0,
+                "sub_0_fieldsplit_1_pc_type": "none",
+
+                "sub_1_sub_pc_type": "ilu",
+                "sub_1_sub_pc_factor_levels": 0,
+                "mat_type": "aij",
+                }
+
+        pc_hypre = {"pc_type": "hypre",
+                "pc_hypre_type": "boomeramg",
+                "mat_type": "aij",
+                }
+     
+        pc_ml = {"pc_type": "ml",
+                "mat_type": "aij"
+                }
 
         pc_ilu = {"pc_type": "ilu",
                   "pc_factor_levels": 1,
@@ -339,34 +360,41 @@ class SinglePhase(ThermalModel):
                   "mat_type": "aij",
                   }
         
-        pc_gamg = {"pc_type": "gamg",
-                   "mat_type": "aij",
-                   "mat_block_size": 2,
-                   }
-        
         pc_lu = {"ksp_type": "preonly",
                  "mat_type": "aij",
                  "pc_type": "lu",
                  }
         
-        #block jacobi ilu
         pc_bilu = {"pc_type": "bjacobi",
-                   "pc_bjacobi_blocks": 2,
                    "sub_pc_type": "ilu",
                    "sub_pc_factor_levels": 1,
                    "mat_type": "aij",
                    }
         
-        parameters.update(pc_fieldsplit)
-        #parameters.update(pc_cpr)
-        #parameters.update(pc_ilu)
-        #parameters.update(pc_amg)
-        #parameters.update(pc_gamg)
-        #parameters.update(pc_lu)
-        #parameters.update(pc_bilu)
-        
         if self.solver_parameters is None:
+            self.solver_parameters = "pc_fieldsplit"
+        
+        if isinstance(self.solver_parameters, str):
+            if self.solver_parameters == "pc_fieldsplit_cd":
+                parameters.update(pc_fieldsplit_cd)
+            elif self.solver_parameters == "pc_fieldsplit_a11":
+                parameters.update(pc_fieldsplit_a11)    
+            elif self.solver_parameters == "pc_fieldsplit_selfp":
+                parameters.update(pc_fieldsplit_selfp)
+            elif self.solver_parameters == "pc_cpr":
+                parameters.update(pc_cpr)
+            elif self.solver_parameters == "pc_cpr_gmres":
+                parameters.update(pc_cpr_gmres)                
+            elif self.solver_parameters == "pc_ilu":
+                parameters.update(pc_ilu)
+            elif self.solver_parameters == "pc_hypre":    
+                parameters.update(pc_hypre)
+            elif self.solver_parameters == "pc_lu":    
+                parameters.update(pc_lu)
+            elif self.solver_parameters == "pc_bilu":    
+                parameters.update(pc_bilu)
             self.solver_parameters = parameters
+
  
     @cached_property
     def appctx(self):

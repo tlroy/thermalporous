@@ -318,95 +318,39 @@ class TwoPhase(ThermalModel):
             self.F -= tmp*self.params.U*(T_inj-T)*r*dx
 
     def init_solver_parameters(self):
-        # set to 1 for p,T order, 0 for T,p order in the fieldsplit solver
-        # Schur complement always bottom right
-        #p_first = 1
-        # assign index for subspace
-        #if p_first:
-            #f0 = 0
-            #f1 = 1
-            #self.idorder = "pressure-temperature ordering for fieldsplit"
-        #else:
-            #f0 = 1
-            #f1 = 0
-            #self.idorder = "temperature-pressure ordering for fieldsplit"
-            
+
         parameters = {
-              "snes_type": "newtonls",
-              "snes_monitor": True,
-              "snes_converged_reason": True, 
-              "snes_max_it": 15,
-              #"snes_rtol": 1e-10,
-              #"snes_view": True,
-              
-              "ksp_type": "fgmres",
-              "ksp_gmres_restart": 40,
-              "ksp_max_it": 400,
-              #"ksp_rtol": 1e-3,
-              #"ksp_view": True,
-              #"ksp_monitor_true_residual": True,
-              #"ksp_monitor": True,
-              "ksp_converged_reason": True, 
-              
-              #"ksp_pc_side": "right",
-              }
-        
-        
-        pc_ilu = {"pc_type": "ilu",
-                  "pc_factor_levels": 0,
-                  "mat_type": "aij",
-                  }
-        
-        pc_amg = {"pc_type": "hypre",
-                  "pc_hypre_type": "boomeramg",
-                  "mat_type": "aij",
-                  }
-        
-        pc_gamg = {"pc_type": "gamg",
-                   "mat_type": "aij",
-                   "mat_block_size": 2,
-                   }
-        
-        pc_lu = {"ksp_type": "preonly",
-                 "mat_type": "aij",
-                 "pc_type": "lu",
-                 }
-        
-        #block jacobi ilu
-        pc_bilu = {"pc_type": "bjacobi",
-                   "pc_bjacobi_blocks": 2,
-                   "sub_pc_type": "ilu",
-                   "sub_pc_factor_levels": 1,
-                   "mat_type": "aij",
-                   }
-        
-        richardson_params = {"ksp_type": "richardson",
-                             "ksp_max_it": 1,
-                             "pc_type": "lu",
-                             }
+                "snes_type": "newtonls",
+                "snes_monitor": None,
+                "snes_converged_reason": None, 
+                "snes_max_it": 15,
+
+                "ksp_type": "fgmres",
+                "ksp_converged_reason": None, 
+                #"ksp_view": None,
+                "ksp_max_it": 200,
+
+                "ksp_gmres_restart": 200,
+                "ksp_rtol": 1e-8,
+                }
+
         v_cycle = {"ksp_type": "preonly",
                     "pc_type": "hypre",
                     "pc_hypre_type" : "boomeramg",
                     "pc_hypre_boomeramg_max_iter": 1,
-                   }   
-        #temperature_params = 
-            
-        
+                    }   
+
+        lu = {"ksp_type": "preonly",
+              "pc_type": "lu",}
+
         pc_cptr = {"pc_type": "composite",
                 "pc_composite_type": "multiplicative",
-                #"pc_composite_pcs": "python,ilu",
                 "pc_composite_pcs": "python,bjacobi",
 
                 "sub_0_pc_python_type": "thermalporous.preconditioners.CPTRStage1_originalPC",
-                #"sub_0_cpr_stage1_pc_type": "lu",
                 "sub_0_cpr_stage1_pc_type": "fieldsplit",
-                #"sub_0_cpr_stage1_pc_fieldsplit_0_fields": 0,
-                #"sub_0_cpr_stage1_pc_fieldsplit_1_fields": 1,
                 "sub_0_cpr_stage1_pc_fieldsplit_type": "schur",
                 "sub_0_cpr_stage1_pc_fieldsplit_schur_fact_type": "FULL",
-                
-                #"sub_0_cpr_stage1_pc_fieldsplit_schur_precondition": "a11",
-                #"sub_0_cpr_stage1_fieldsplit_1": v_cycle,
                 
                 "sub_0_cpr_stage1_fieldsplit_1_ksp_type": "preonly",
                 "sub_0_cpr_stage1_fieldsplit_1_pc_type": "python",
@@ -415,37 +359,154 @@ class TwoPhase(ThermalModel):
 
                 "sub_0_cpr_stage1_fieldsplit_0": v_cycle,
                 
+                "sub_1_sub_pc_type": "ilu",
+                "sub_1_sub_pc_factor_levels": 0,
+                "mat_type": "aij",
+                }
+
+        pc_cpr = {"pc_type": "composite",
+                "pc_composite_type": "multiplicative",
+                "pc_composite_pcs": "python,bjacobi",
+
+                "sub_0_pc_python_type": "thermalporous.preconditioners.CPRStage1PC",
+                "sub_0_cpr_stage1": v_cycle,
+
                 "sub_1_pc_bjacobi_blocks": 1,
                 "sub_1_sub_pc_type": "ilu",
                 "sub_1_sub_pc_factor_levels": 0,
                 "mat_type": "aij",
                 }
-        
-        
-        pc_cpr = {"pc_type": "composite",
-              "pc_composite_type": "multiplicative",
-              #"pc_composite_pcs": "python,ilu",
-              "pc_composite_pcs": "python,bjacobi",
 
-              "sub_0_pc_python_type": "thermalporous.preconditioners.CPRStage1PC",
-              "sub_0_cpr_stage1": v_cycle,
-              
-              #"sub_1_pc_type": "ilu",
-              #"sub_1_pc_factor_levels": 1,
-              
-              "sub_1_pc_bjacobi_blocks": 1,
-              "sub_1_sub_pc_type": "ilu",
-              "sub_1_sub_pc_factor_levels": 0,
-              "mat_type": "aij",
-              }
-        #parameters.update(pc_cptr)
-        parameters.update(pc_cpr)
-        #parameters.update(pc_ilu)
-        #parameters.update(pc_amg)
-        #parameters.update(pc_gamg)
-        #parameters.update(pc_lu)
-        #parameters.update(pc_bilu)
+        pc_cptr_a11 = {"pc_type": "composite",
+                "pc_composite_type": "multiplicative",
+                "pc_composite_pcs": "python,bjacobi",
+
+                "sub_0_pc_python_type": "thermalporous.preconditioners.CPTRStage1_originalPC",
+                "sub_0_cpr_stage1_pc_type": "fieldsplit",
+                "sub_0_cpr_stage1_pc_fieldsplit_type": "schur",
+                "sub_0_cpr_stage1_pc_fieldsplit_schur_fact_type": "FULL",
+                
+                "sub_0_cpr_stage1_pc_fieldsplit_schur_precondition": "a11",
+                "sub_0_cpr_stage1_fieldsplit_1": v_cycle,
+
+                "sub_0_cpr_stage1_fieldsplit_0": v_cycle,
+                
+                "sub_1_pc_bjacobi_blocks": 1,
+                "sub_1_sub_pc_type": "ilu",
+                "sub_1_sub_pc_factor_levels": 0,
+                "mat_type": "aij",
+                }
+
+        pc_cpr_gmres = {"pc_type": "composite",
+                "pc_composite_type": "multiplicative",
+                "pc_composite_pcs": "fieldsplit,bjacobi",
+                
+                "sub_0_pc_fieldsplit_0_fields": "0",
+                "sub_0_pc_fieldsplit_1_fields": "1,2",
+                "sub_0_pc_fieldsplit_type": "additive",
+                "sub_0_fieldsplit_0": lu,    
+                "sub_0_fieldsplit_1_ksp_type": "gmres",
+                "sub_0_fieldsplit_1_ksp_max_it": 0,
+                "sub_0_fieldsplit_1_pc_type": "none",
+
+                "sub_1_sub_pc_type": "ilu",
+                "sub_1_sub_pc_factor_levels": 0,
+                "mat_type": "aij",
+                }
+
+        pc_cprilu1_gmres = {"pc_type": "composite",
+                "pc_composite_type": "multiplicative",
+                "pc_composite_pcs": "fieldsplit,bjacobi",
+                
+                "sub_0_pc_fieldsplit_0_fields": "0",
+                "sub_0_pc_fieldsplit_1_fields": "1,2",
+                "sub_0_pc_fieldsplit_type": "additive",
+                "sub_0_fieldsplit_0": v_cycle,    
+                "sub_0_fieldsplit_1_ksp_type": "gmres",
+                "sub_0_fieldsplit_1_ksp_max_it": 0,
+                "sub_0_fieldsplit_1_pc_type": "none",
+
+                "sub_1_sub_pc_type": "ilu",
+                "sub_1_sub_pc_factor_levels": 1,
+                "mat_type": "aij",
+                }
+
+        pc_cptr_gmres = {"pc_type": "composite",
+                "pc_composite_type": "multiplicative",
+                "pc_composite_pcs": "fieldsplit,bjacobi",
+                
+                "sub_0_pc_fieldsplit_0_fields": "0,1",
+                "sub_0_pc_fieldsplit_1_fields": "2",
+                "sub_0_pc_fieldsplit_type": "additive",
+                
+                "sub_0_fieldsplit_0_pc_type": "fieldsplit", 
+                "sub_0_fieldsplit_0_pc_fieldsplit_type": "schur",
+                "sub_0_fieldsplit_0_pc_fieldsplit_schur_fact_type": "FULL",
+        
+                "sub_0_fieldsplit_0_fieldsplit_1_ksp_type": "preonly",
+                "sub_0_fieldsplit_0_fieldsplit_1_pc_type": "python",
+                "sub_0_fieldsplit_0_fieldsplit_1_pc_python_type": "thermalporous.preconditioners.ConvDiffSchurTwoPhasesPC",
+                "sub_0_fieldsplit_0_fieldsplit_1_schur": lu,
+                
+                "sub_0_fieldsplit_0_fieldsplit_0": lu,       
+                
+                "sub_0_fieldsplit_1_ksp_type": "gmres",
+                "sub_0_fieldsplit_1_ksp_max_it": 0,
+                "sub_0_fieldsplit_1_pc_type": "none",
+
+                "sub_1_sub_pc_type": "ilu",
+                "sub_1_sub_pc_factor_levels": 0,
+                "mat_type": "aij",
+                }
+
+        pc_ilu = {"pc_type": "ilu",
+                  "pc_factor_levels": 0,
+                  "mat_type": "aij",
+                  }
+        
+        pc_hypre = {"pc_type": "hypre",
+                  "pc_hypre_type": "boomeramg",
+                  "mat_type": "aij",
+                  }
+        
+
+        pc_lu = {"ksp_type": "preonly",
+                 "mat_type": "aij",
+                 "pc_type": "lu",
+                 }
+        
+
+        pc_bilu = {"pc_type": "bjacobi",
+                   "sub_pc_type": "ilu",
+                   "sub_pc_factor_levels": 1,
+                   "mat_type": "aij",
+                   }
+
+
         if self.solver_parameters is None:
+            self.solver_parameters = "pc_cptr_gmres"
+        
+        if isinstance(self.solver_parameters, str):
+            if self.solver_parameters == "pc_cptr":
+                parameters.update(pc_cptr)
+            elif self.solver_parameters == "pc_cptr_a11":
+                parameters.update(pc_cptr_a11)    
+            elif self.solver_parameters == "pc_cptr_gmres":
+                parameters.update(pc_cptr_gmres)
+            elif self.solver_parameters == "pc_cpr_gmres":
+                parameters.update(pc_cpr_gmres)
+            elif self.solver_parameters == "pc_cpr":
+                parameters.update(pc_cpr)
+            elif self.solver_parameters == "pc_cprilu1_gmres":
+                parameters.update(pc_cpr_gmres)                
+            elif self.solver_parameters == "pc_ilu":
+                parameters.update(pc_ilu)
+            elif self.solver_parameters == "pc_hypre":    
+                parameters.update(pc_hypre)
+            elif self.solver_parameters == "pc_lu":    
+                parameters.update(pc_lu)
+            elif self.solver_parameters == "pc_bilu":    
+                parameters.update(pc_bilu)
             self.solver_parameters = parameters
 
  
