@@ -340,6 +340,13 @@ class SinglePhase(ThermalModel):
                 "sub_1_sub_pc_factor_levels": 0,
                 "mat_type": "aij",
                 }
+        
+        pc_fieldsplit_diag = {"pc_type": "fieldsplit",
+                              "pc_fieldsplit_type": "additive",
+                              "fieldsplit_0": v_cycle,
+                              "fieldsplit_1": v_cycle,
+                              }
+
 
         pc_hypre = {"pc_type": "hypre",
                 "pc_hypre_type": "boomeramg",
@@ -384,7 +391,9 @@ class SinglePhase(ThermalModel):
             elif self.solver_parameters == "pc_cpr":
                 parameters.update(pc_cpr)
             elif self.solver_parameters == "pc_cpr_gmres":
-                parameters.update(pc_cpr_gmres)                
+                parameters.update(pc_cpr_gmres)
+            elif self.solver_parameters == "pc_fieldsplit_diag":
+                parameters.update(pc_fieldsplit_diag)
             elif self.solver_parameters == "pc_ilu":
                 parameters.update(pc_ilu)
             elif self.solver_parameters == "pc_hypre":    

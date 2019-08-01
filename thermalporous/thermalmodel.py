@@ -1,7 +1,7 @@
 import numpy as np
 
 from firedrake import *
-
+import thermalporous.utils as utils
 
 class ThermalModel:
         
@@ -273,8 +273,8 @@ class ThermalModel:
                         #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']], 
                         )    
 
-            #self.b = assemble(self.F)
             u_.assign(u)
+            #self.b = assemble(self.F)
             current_dt = self.dt.values()[0] 
             t += current_dt
             dt_vec.append(current_dt)
@@ -319,13 +319,17 @@ class ThermalModel:
                 else:
                     self.dt.assign(current_dt)
             current_dt = self.dt.values()[0] 
-            if current_dt > end-t:
+            if current_dt > end-t and t < end:
                 self.dt.assign(end-t)
             
                     
          
         # Save final solution for convergence test
-        self.u = u
+        #self.u.assign(u)
+        #self.u_.assign(u_)
+        #self.dt.assign(current_dt)
+        #utils.ExportJacobian(self.J, u)
+        #utils.ExportResidual(self.F)
         
         if self.checkpointing["save"] is True:
             chk = DumbCheckpoint(self.checkpointing["savename"], mode=FILE_CREATE)

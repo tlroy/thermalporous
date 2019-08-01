@@ -1,4 +1,5 @@
 from firedrake import *
+from petsc4py import *
 import numpy as np
 
 from mpi4py import MPI
@@ -22,6 +23,24 @@ def GetNodeClosestToCoordinate(V, coord):
     else:
         res = -1
     return res
+
+def ExportJacobian(F, u):
+    J = derivative(F, u)
+    JJ = assemble(J)#, mat_type = "aij")
+    JJ.force_evaluation()
+    A = JJ.petscmat
+
+    myviewer = PETSc.Viewer().createASCII("matrix.txt") 
+    myviewer.pushFormat(PETSc.Viewer.Format.ASCII_MATLAB) 
+    A.view(myviewer)
+    
+def ExportResidual(F):
+    b = assemble(F)
+
+    with b.dat.vec_ro as w: 
+        myviewer = PETSc.Viewer().createASCII("rhs.txt") 
+        myviewer.pushFormat(PETSc.Viewer.Format.ASCII_MATLAB) 
+        w.view(myviewer)
 
 #def fprint(*output, filename = "results/results.txt"):
     #print(*output)
