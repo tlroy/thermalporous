@@ -481,8 +481,6 @@ class CPRStage1PC(PCBase):
     def initialize(self, pc):
         
         prefix = pc.getOptionsPrefix()
-
-        A, P = pc.getOperators()
         appctx = self.get_appctx(pc)
         
         V = appctx["geo"].V
@@ -492,13 +490,31 @@ class CPRStage1PC(PCBase):
             W = V*V
         
         
-        fdofs = W.dof_dset.field_ises  # TODO: should this be local_ises?
-        self.s_is = PETSc.IS().createGeneral(np.concatenate([iset.indices for iset in fdofs[1:]]))
+        fdofs = W.dof_dset.field_ises 
+        self.nonp_is = PETSc.IS().createGeneral(np.concatenate([iset.indices for iset in fdofs[1:]])) # non-pressure fields: saturations and temperatures in the two-phase case
+        self.s_is = fdofs[-1] # in singlephase: temperature. in multiphase: saturations
+        #self.s_is = self.nonp_is
+        self.T_is = fdofs[1] # temperature dofs
         self.p_is = fdofs[0]
         
-        App = A.createSubMatrix(self.p_is, self.p_is)
-                              
-        self.Atildepp = App # Weighted Sum is done in the weak form
+        self.decoup = "No"
+        #self.decoup = "QI"
+        #self.decoup = "TI"
+        #self.decoup = "QI_temp"
+        #self.decoup = "TI_temp"
+        
+        
+        if self.decoup == "TI":
+            self.create_blocks = self.create_blocks_TI
+        elif self.decoup == "TI_temp":
+            self.create_blocks = self.create_blocks_TI_temp
+        elif self.decoup == "QI":
+            self.create_blocks = self.create_blocks_QI
+        elif self.decoup == "QI_temp":
+            self.create_blocks = self.create_blocks_QI_temp
+        elif self.decoup == "No":
+            self.create_blocks = self.create_blocks_
+        self.create_blocks(pc)
 
         pc_schur = PETSc.PC().create()
         #pc_schur.setType("lu")
@@ -511,27 +527,246 @@ class CPRStage1PC(PCBase):
         pc_schur.setUp()
         
         self.pc_schur = pc_schur
+        
+        if not self.decoup == "No":
+            psize = self.p_is.getSize()
+            # Vector for storing preconditioned pressure-vector
+            self.workVec = PETSc.Vec().create()
+            self.workVec.setSizes(psize)
+            self.workVec.setUp()
 
-
-    def update(self, pc):
+    def create_blocks_(self, pc):
         A, P = pc.getOperators()
-        App = A.createSubMatrix(self.p_is, self.p_is)              
-        self.Atildepp = App 
+        App = A.createSubMatrix(self.p_is, self.p_is)
+        self.Atildepp = App # Weighted Sum is done in the weak form
+        
+    def create_blocks_TI(self, pc):
+        A, P = pc.getOperators()
+
+        App = A.createSubMatrix(self.p_is, self.p_is)
+                              
+        # Decoupling operators        
+        Ass = A.createSubMatrix(self.s_is, self.s_is)
+        Asp = A.createSubMatrix(self.s_is, self.p_is)
+        Aps = A.createSubMatrix(self.p_is, self.s_is)
+        
+        #True-IMPES
+        AssT = PETSc.Mat()
+        Ass.transpose(out=AssT)
+        invdiag = AssT.getRowSum()
+        invdiag.reciprocal()
+        invDss = PETSc.Mat().create()
+        invDss.setSizes(Ass.getSizes())
+        invDss.setUp()
+        invDss.setDiagonal(invdiag)
+        
+        ApsT = PETSc.Mat()
+        Aps.transpose(out=ApsT)
+        diag = ApsT.getRowSum()
+        Dps = PETSc.Mat().create()
+        Dps.setSizes(Aps.getSizes())
+        Dps.setUp()
+        Dps.setDiagonal(diag)
+        
+        self.apsinvdss = Dps.matMult(invDss)
+        self.Atildepp = App - self.apsinvdss.matMult(Asp) # Weighted Sum is done in the weak form
+        
+
+    def create_blocks_TI_temp(self, pc):
+        import numpy as np
+        A, P = pc.getOperators()
+
+        App = A.createSubMatrix(self.p_is, self.p_is)
+                              
+        # Decoupling operators        
+        Ass = A.createSubMatrix(self.nonp_is, self.nonp_is)
+        Asp = A.createSubMatrix(self.nonp_is, self.p_is)
+        Aps = A.createSubMatrix(self.p_is, self.nonp_is)
+        indices = Aps.getOwnershipRange()
+        
+        ASS = A.createSubMatrix(self.s_is, self.s_is)
+        AST = A.createSubMatrix(self.s_is, self.T_is)
+        ATS = A.createSubMatrix(self.T_is, self.s_is)
+        ATT = A.createSubMatrix(self.T_is, self.T_is)
+        ApS = A.createSubMatrix(self.p_is, self.s_is)
+        ApT = A.createSubMatrix(self.p_is, self.T_is)
+        
+        A_T = PETSc.Mat()
+        ASS.transpose(out=A_T)
+        Rsum_SS = A_T.getRowSum()
+        AST.transpose(out=A_T)
+        Rsum_ST = A_T.getRowSum()
+        ATS.transpose(out=A_T)
+        Rsum_TS = A_T.getRowSum()
+        ATT.transpose(out=A_T)
+        Rsum_TT = A_T.getRowSum()
+        ApT.transpose(out=A_T)
+        Rsum_pT = A_T.getRowSum() 
+        ApS.transpose(out=A_T)
+        Rsum_pS = A_T.getRowSum() 
+        
+        
+        
+        #True-IMPES
+        invDss = PETSc.Mat().create()
+        invDss.setSizes(Ass.getSizes())
+        invDss.setUp()
+        invDss.assemblyBegin()
+        block = np.zeros([2,2])      
+        s_size = self.s_is.getSize()
+        
+
+        for i in range(indices[0], indices[-1]):
+            #print(rank, i, indices)
+            block[0,0] = Rsum_TT[i]
+            block[0,1] = Rsum_TS[i]
+            block[1,0] = Rsum_ST[i]
+            block[1,1] = Rsum_SS[i]
+            block = np.linalg.inv(block)
+            invDss.setValue(i,i, block[0,0])
+            invDss.setValue(i,i + s_size, block[0,1])
+            invDss.setValue(i + s_size,i, block[1,0])
+            invDss.setValue(i + s_size,i + s_size, block[1,1])
+        invDss.assemblyEnd()
+
+        Dps = PETSc.Mat().create()
+        Dps.setSizes(Aps.getSizes())
+        Dps.setUp()
+        Dps.assemblyBegin()
+        for i in range(indices[0], indices[-1]):
+            Dps.setValue(i,i, Rsum_pT[i])
+            Dps.setValue(i,i + s_size, Rsum_pS[i])
+        Dps.assemblyEnd()
+
+        self.apsinvdss = Dps.matMult(invDss)
+        self.Atildepp = App - self.apsinvdss.matMult(Asp) # Weighted Sum is done in the weak form
+        
+    def create_blocks_QI(self, pc):
+        A, P = pc.getOperators()
+
+        App = A.createSubMatrix(self.p_is, self.p_is)
+                              
+        # Decoupling operators        
+        Ass = A.createSubMatrix(self.s_is, self.s_is)
+        Asp = A.createSubMatrix(self.s_is, self.p_is)
+        Aps = A.createSubMatrix(self.p_is, self.s_is)
+        
+        #Quasi-IMPES
+        invdiag = Ass.getDiagonal()
+        invdiag.reciprocal()
+        invDss = PETSc.Mat().create()
+        invDss.setSizes(Ass.getSizes())
+        invDss.setUp()
+        invDss.setDiagonal(invdiag)
+        
+        diag = Aps.getDiagonal()
+        Dps = PETSc.Mat().create()
+        Dps.setSizes(Aps.getSizes())
+        Dps.setUp()
+        Dps.setDiagonal(diag)
+        self.apsinvdss = Dps.matMult(invDss)
+        self.Atildepp = App - self.apsinvdss.matMult(Asp) # Weighted Sum is done in the weak form
+        
+    def create_blocks_QI_temp(self, pc):
+        import numpy as np
+        A, P = pc.getOperators()
+
+        App = A.createSubMatrix(self.p_is, self.p_is)
+                              
+        # Decoupling operators        
+        Ass = A.createSubMatrix(self.nonp_is, self.nonp_is)
+        Asp = A.createSubMatrix(self.nonp_is, self.p_is)
+        Aps = A.createSubMatrix(self.p_is, self.nonp_is)
+        indices = Aps.getOwnershipRange()
+        
+        
+        ASS = A.createSubMatrix(self.s_is, self.s_is)
+        AST = A.createSubMatrix(self.s_is, self.T_is)
+        ATS = A.createSubMatrix(self.T_is, self.s_is)
+        ATT = A.createSubMatrix(self.T_is, self.T_is)
+        ApS = A.createSubMatrix(self.p_is, self.s_is)
+        ApT = A.createSubMatrix(self.p_is, self.T_is)
+        
+        A_T = PETSc.Mat()
+        ASS.transpose(out=A_T)
+        Rsum_SS = ASS.getDiagonal()
+        Rsum_ST = AST.getDiagonal()
+        Rsum_TS = ATS.getDiagonal()
+        Rsum_TT = ATT.getDiagonal()
+        Rsum_pT = ApT.getDiagonal() 
+        Rsum_pS = ApS.getDiagonal() 
+        
+        
+        #Quasi-IMPES
+        invDss = PETSc.Mat().create()
+        invDss.setSizes(Ass.getSizes())
+        invDss.setUp()
+        invDss.assemblyBegin()
+        block = np.zeros([2,2])      
+        s_size = self.s_is.getSize()
+        #local_size = self.s_is.getLocalSize()
+        #r_is = range(indices[0], indices[-1])
+        #from IPython import embed; embed()
+        for i in range(indices[0], indices[-1]):
+            #print(rank, i, indices)
+            block[0,0] = Rsum_TT[i]
+            block[0,1] = Rsum_TS[i]
+            block[1,0] = Rsum_ST[i]
+            block[1,1] = Rsum_SS[i]
+            block = np.linalg.inv(block)
+            invDss.setValue(i,i, block[0,0])
+            invDss.setValue(i,i + s_size, block[0,1])
+            invDss.setValue(i + s_size,i, block[1,0])
+            invDss.setValue(i + s_size,i + s_size, block[1,1])
+        #for i in range(local_size):
+            #block[0,0] = Ass.getValue(i, i)
+            #block[0,1] = Ass.getValue(i, i + s_size)
+            #block[1,0] = Ass.getValue(i + local_size, i)
+            #block[1,1] = Ass.getValue(i + local_size, i + s_size)
+            #block = np.linalg.inv(block)
+            #invDss.setValue(r_is[i], r_is[i], block[0,0])
+            #invDss.setValue(r_is[i], r_is[i] + s_size, block[0,1])
+            #invDss.setValue(r_is[i] + s_size, r_is[i], block[1,0])
+            #invDss.setValue(r_is[i] + s_size, r_is[i] + s_size, block[1,1])
+        invDss.assemblyEnd()
+
+        indices = Aps.getOwnershipRange()
+        Dps = PETSc.Mat().create()
+        Dps.setSizes(Aps.getSizes())
+        Dps.setUp()
+        Dps.assemblyBegin()
+        for i in range(indices[0], indices[-1]):
+            Dps.setValue(i,i, Aps.getValue(i,i))
+            Dps.setValue(i,i + s_size, Aps.getValue(i,i+s_size))
+        Dps.assemblyEnd()
+
+        self.apsinvdss = Dps.matMult(invDss)
+        self.Atildepp = App - self.apsinvdss.matMult(Asp) # Weighted Sum is done in the weak form
+        
+    def update(self, pc):
+        self.create_blocks(pc)
         self.pc_schur.setOperators(self.Atildepp)
 
     
     def apply(self, pc, x, y):
         # x is the input Vec to this preconditioner
         # y is the output Vec, P^{-1} x
-        x_s = x.getSubVector(self.s_is)
         x_p = x.getSubVector(self.p_is)
         y_p = y.getSubVector(self.p_is)
         r_p = x_p.copy()
         
+        if not self.decoup == "No":
+            if self.decoup == "QI_temp" or self.decoup == "TI_temp":
+                x_s = x.getSubVector(self.nonp_is)
+            else:
+                x_s = x.getSubVector(self.s_is)
+            self.apsinvdss.mult(x_s, self.workVec)
+            r_p.axpy(  -1.0, self.workVec)  # x_p - Aps*inv(Dss)*x_s
+        
         self.pc_schur.apply(r_p, y_p)
 
         # need to do something for y_s
-        y_s = y.getSubVector(self.s_is)
+        y_s = y.getSubVector(self.nonp_is)
         y_s.set(0.0)
 
     # should not be used

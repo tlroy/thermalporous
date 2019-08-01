@@ -320,7 +320,6 @@ class SinglePhase(ThermalModel):
                 "sub_0_pc_python_type": "thermalporous.preconditioners.CPRStage1PC",
                 "sub_0_cpr_stage1": v_cycle,
 
-                "sub_1_pc_bjacobi_blocks": 1,
                 "sub_1_sub_pc_type": "ilu",
                 "sub_1_sub_pc_factor_levels": 0,
                 "mat_type": "aij",
