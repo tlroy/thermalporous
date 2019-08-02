@@ -2,7 +2,6 @@ import numpy as np
 
 from firedrake import *
 from thermalporous.thermalmodel import ThermalModel
-from thermalporous.preconditioners import CPTRStage1, ConvDiffSchurTwoPhasesPC, CPTRStage1PC, CPTRStage1_originalPC
 
 from firedrake.utils import cached_property
 class TwoPhase(ThermalModel):
@@ -14,7 +13,12 @@ class TwoPhase(ThermalModel):
         self.mesh = geo.mesh
         self.comm = self.mesh.comm
         self.V = geo.V
-        self.W = self.V*self.V*self.V
+        if vector:
+            self.W = VectorFunctionSpace(self.mesh, "DQ", degree = 0, dim = 2)*self.V
+            self.i_S_o = 1
+        else:
+            self.W = self.V*self.V*self.V
+            self.i_S_o = 2
         self.save = save
         self.n_save = n_save
         self.small_dt_start = small_dt_start
@@ -77,11 +81,18 @@ class TwoPhase(ThermalModel):
         # Initiate functions
         self.u = Function(W)
         self.u_ = Function(W)
-
-        (p, T, S_o) = split(self.u)
-        (p_, T_, S_o_) = split(self.u_)
-
-        q, r, s = TestFunctions(W)
+        
+        if self.vector:
+            (pT, S_o) = split(self.u)
+            (p, T) = split(pT)
+            (pT_, S_o_) = split(self.u_)
+            (p_, T_) = split(pT_)
+            qr, s = TestFunctions(W)
+            q, r = split(qr)
+        else:
+            (p, T, S_o) = split(self.u)
+            (p_, T_, S_o_) = split(self.u_)
+            q, r, s = TestFunctions(W)
         
 
         
@@ -347,7 +358,7 @@ class TwoPhase(ThermalModel):
                 "pc_composite_type": "multiplicative",
                 "pc_composite_pcs": "python,bjacobi",
 
-                "sub_0_pc_python_type": "thermalporous.preconditioners.CPTRStage1_originalPC",
+                "sub_0_pc_python_type": "thermalporous.preconditioners.CPTRStage1PC",
                 "sub_0_cpr_stage1_pc_type": "fieldsplit",
                 "sub_0_cpr_stage1_pc_fieldsplit_type": "schur",
                 "sub_0_cpr_stage1_pc_fieldsplit_schur_fact_type": "FULL",
@@ -381,7 +392,7 @@ class TwoPhase(ThermalModel):
                 "pc_composite_type": "multiplicative",
                 "pc_composite_pcs": "python,bjacobi",
 
-                "sub_0_pc_python_type": "thermalporous.preconditioners.CPTRStage1_originalPC",
+                "sub_0_pc_python_type": "thermalporous.preconditioners.CPTRStage1PC",
                 "sub_0_cpr_stage1_pc_type": "fieldsplit",
                 "sub_0_cpr_stage1_pc_fieldsplit_type": "schur",
                 "sub_0_cpr_stage1_pc_fieldsplit_schur_fact_type": "FULL",

@@ -107,7 +107,13 @@ class ThermalModel:
         if self.save:
             if self.vector:
                 outfileu = File("results/vecsolution.pvd")
-                outfileu.write(u)
+                if self.name == "Two-phase":
+                    outfileS_o = File("results/saturation_o.pvd")
+                    (pTvec, S_ovec) = u.split()
+                    outfileS_o.write(S_ovec)
+                    outfileu.write(pTvec)
+                else:
+                    outfileu.write(u)
             else:
                 outfilep = File("results/pressure.pvd")
                 outfileT = File("results/temperature.pvd")
@@ -149,10 +155,10 @@ class ThermalModel:
                     self.solver.solve() 
                     
                     if self.name == "Two-phase":
-                        print(np.max(u.dat.data[2]))
+                        print(np.max(u.dat.data[self.i_S_o]))
                 except exceptions.ConvergenceError:
                     if self.name == "Two-phase":
-                        print(np.max(u.dat.data[2]))
+                        print(np.max(u.dat.data[self.i_S_o]))
                     if self.comm.rank == 0:
                         print(i_plot, "th plot")
                     self.dt.assign(self.dt.values()[0]*0.5)
@@ -165,12 +171,15 @@ class ThermalModel:
             
             # making sure 0<= S_o <=1
             if self.name == "Two-phase":
-                
-                (p,T,S_o) = split(u)
+                if self.vector:
+                    (pT,S_o) = split(u)
+                    (p,T) = split(pT)
+                else:
+                    (p,T,S_o) = split(u)
                 mass_o = assemble(self.geo.phi*S_o*self.params.oil_rho(p,T)*dx)
                 if self.comm.rank == 0:
                     print("Total oil mass in reservoir: ", mass_o)
-                Sat = u.dat.data[2]
+                Sat = u.dat.data[self.i_S_o]
                 epsilon = 1e-20
                 local_chop = (np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon,)
                 from mpi4py import MPI
@@ -188,7 +197,7 @@ class ThermalModel:
                     try:
                         self.solver.solve()
                     except exceptions.ConvergenceError:
-                        print(np.max(u.dat.data[2]))
+                        print(np.max(u.dat.data[self.i_S_o]))
                         self.dt.assign(self.dt.values()[0]*0.5)
                         if self.comm.rank == 0:
                             print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
@@ -196,7 +205,7 @@ class ThermalModel:
                         previous_fail = 1
                         continue
                     break
-                    Sat = u.dat.data[2]
+                    Sat = u.dat.data[self.i_S_o]
                     local_chop = (np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon,)
                     global_chop = (False,)
                     global_chop = self.comm.reduce(local_chop, op=MPI.MAX, root=0)
@@ -206,7 +215,7 @@ class ThermalModel:
                 N = len(Sat)
                 Sat = np.minimum(Sat, np.ones(int(N)))
                 Sat = np.maximum(Sat, np.zeros(int(N)))
-                u.dat.data[2][...] = Sat    
+                u.dat.data[self.i_S_o][...] = Sat    
                 
             ## Print prod/inj rates    
             if self.case.name.startswith("Sources"):
@@ -284,7 +293,12 @@ class ThermalModel:
             if self.save:
                 if i_plot%self.n_save == 0:
                     if self.vector:
-                        outfileu.write(u)
+                        if self.name == "Two-phase":
+                            (pTvec, S_ovec) = u.split()
+                            outfileS_o.write(S_ovec)
+                            outfileu.write(pTvec)
+                        else:
+                            outfileu.write(u)
                     else:
                         if self.name == "Two-phase":
                             (pvec, Tvec, S_ovec) = u.split()
@@ -358,7 +372,7 @@ class ThermalModel:
             self.resultprint("-----------------")
             for x in self.solver_parameters:
                 self.resultprint(x, ':', self.solver_parameters[x])
-            if self.solver.snes.ksp.pc.getType() == 'fieldsplit':
+            if self.solver.snes.ksp.pc.getType() == 'fieldsplit' and self.name == "Single phase":
                 self.resultprint(self.idorder)
             self.resultprint(" ")
             self.resultprint("Solver performance")
