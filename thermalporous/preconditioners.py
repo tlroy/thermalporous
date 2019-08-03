@@ -289,137 +289,15 @@ class ConvDiffSchurTwoPhasesPC(PCBase):
         super(ConvDiffSchurTwoPhasesPC, self).view(pc, viewer)
         viewer.printfASCII("KSP solver for S^-1\n")
         self.ksp.view(viewer)    
-        
-#class ConvDiffSchurTwoPhasesPC(PCBase):
-    #def initialize(self, pc):
-        #from firedrake import TrialFunction, TestFunction, dx, assemble, inner, parameters
-        #from firedrake.assemble import allocate_matrix, create_assembly_callable
-        #prefix = pc.getOptionsPrefix()
-
-        ## we assume P has things stuffed inside of it
-        #_, P = pc.getOperators()
-        ##from IPython import embed; embed()
-        #appctx = self.get_appctx(pc)
-
-        #case = appctx["case"]
-        #state = appctx["state"]
-        #preid = appctx["pressure_space"]
-        #temid = appctx["temperature_space"]
-        #Satid = appctx["saturation_space"]
-        #params = appctx["params"]
-        #geo = appctx["geo"]
-        #V = geo.V
-        #p0 = split(state)[preid]
-        #T0 = split(state)[temid]
-        #S0 = split(state)[Satid]
-
-        #T = TrialFunction(V)
-        #r = TestFunction(V)
-        ## Handle vector and tensor-valued spaces.
-        
-        ## Maybe don't have to reconstruct everything?
-        #dt = appctx["dt"]
-        #K_x = geo.K_x
-        #K_y = geo.K_y
-        #kT = geo.kT
-        #phi = geo.phi
-        #c_v_o = params.c_v_o
-        #c_v_w = params.c_v_w
-        #rho_r = params.rho_r
-        #c_r = params.c_r
-        #oil_mu = params.oil_mu
-        #oil_rho = params.oil_rho
-        #water_mu = params.water_mu
-        #water_rho = params.water_rho
-        #rel_perm_o = params.rel_perm_o
-        #rel_perm_w = params.rel_perm_w
-        
-        ## Define facet quantities
-        #n = FacetNormal(V.mesh())
-
-        ## Define difference between cell centers
-        #x = SpatialCoordinate(V.mesh())
-        #x_func = interpolate(x[0], V)
-        #y_func = interpolate(x[1], V)
-        #Delta_h = sqrt(jump(x_func)**2 + jump(y_func)**2)
-
-        ## harmonic average for permeability and conductivity
-        #K_x_facet = conditional(gt(avg(K_x), 0.0), K_x('+')*K_x('-') / avg(K_x), 0.0) 
-        #K_y_facet = conditional(gt(avg(K_y), 0.0), K_y('+')*K_y('-') / avg(K_y), 0.0) 
-        
-        #K_facet = (K_x_facet*(abs(n[0]('+'))+abs(n[0]('-')))/2 + K_y_facet*(abs(n[1]('+'))+abs(n[1]('-')))/2)
-        
-        #kT_facet = conditional(gt(avg(kT), 0.0), kT('+')*kT('-') / avg(kT), 0.0)  
-        ## conservation of energy equation
-        #a_Eaccum = phi*c_v_o*S0*(oil_rho(p0,T0)*T)/dt*r*dx + phi*c_v_w*(1.0 - S0)*(water_rho(p0,T0)*T)/dt*r*dx + (1-phi)*rho_r*c_r*(T)/dt*r*dx 
-        #a_advec = K_facet*conditional(gt(jump(p0), 0.0), T('+')*rel_perm_w(S0('+'))*water_rho(p0('+'),T0('+'))/water_mu(T0('+')), T('-')*rel_perm_w(S0('-'))*water_rho(p0('-'),T0('-'))/water_mu(T0('-')))*c_v_w*jump(r)*jump(p0)/Delta_h*dS + K_facet*conditional(gt(jump(p0), 0.0), T('+')*rel_perm_o(S0('+'))*oil_rho(p0('+'),T0('+'))/oil_mu(T0('+')), T('-')*rel_perm_o(S0('-'))*oil_rho(p0('-'),T0('-'))/oil_mu(T0('-')))*c_v_o*jump(r)*jump(p0)/Delta_h*dS
-        #a_diff = kT_facet*jump(T)/Delta_h*jump(r)*dS
-        
-        #a = a_Eaccum + a_diff + a_advec
-
-        ## source terms
-        #for well in case.prod_wells:
-            #[rate, water_rate, oil_rate] = case.flow_rate_twophase(p0, T0, well, S_o = S0)
-            ##well.update({'rate': rate})
-            #tmp_o =  well['delta']*oil_rate
-            #tmp_w = well['delta']*water_rate
-            #rhow_o = oil_rho(p0, T0)
-            #rhow_w = water_rho(p0, T0)
-            #a -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
-
-        #opts = PETSc.Options()
-        #self.mat_type = opts.getString(prefix+"schur_mat_type", parameters["default_matrix_type"])
-        
-        #self.A = allocate_matrix(a, form_compiler_parameters=None,
-                                  #mat_type=self.mat_type)
-        #self._assemble_A = create_assembly_callable(a, tensor=self.A,
-                                                     #form_compiler_parameters=None,
-                                                     #mat_type=self.mat_type)
-        #self._assemble_A()
-        #self.A.force_evaluation()
-
-        #Pmat = self.A.petscmat
-        #Pmat.setNullSpace(P.getNullSpace())
-        #tnullsp = P.getTransposeNullSpace()
-        #if tnullsp.handle != 0:
-            #Pmat.setTransposeNullSpace(tnullsp)
-
-        #ksp = PETSc.KSP().create()
-        #ksp.incrementTabLevel(1, parent=pc)
-        #ksp.setOperators(Pmat)
-        #ksp.setOptionsPrefix(prefix + "schur_")
-        
-        #ksp.setUp()
-        #ksp.setFromOptions()
-        #self.ksp = ksp
-
-
-    #def update(self, pc):
-        #self._assemble_A()
-        #self.A.force_evaluation()
-
-
-    #def apply(self, pc, X, Y):
-        #self.ksp.solve(X, Y)
-
-
-    ## should not be used
-    #applyTranspose = apply
-
-    #def view(self, pc, viewer=None):
-        #super(ConvDiffSchurTwoPhasesPC, self).view(pc, viewer)
-        #viewer.printfASCII("KSP solver for S^-1\n")
-        #self.ksp.view(viewer)   
-
-from petsc4py import PETSc
-
+ 
 
 class CPRStage1PC(PCBase):
     '''
     1st stage solver for constrained pressure residual
     '''
     def initialize(self, pc):
-        
+        from petsc4py import PETSc
+
         prefix = pc.getOptionsPrefix()
         appctx = self.get_appctx(pc)
         
