@@ -324,6 +324,9 @@ class SinglePhase(ThermalModel):
                 "sub_1_sub_pc_factor_levels": 0,
                 "mat_type": "aij",
                 }
+        
+        pc_cpr_QI = {**pc_cpr, "sub_0_cpr_decoup": "QI"}
+        pc_cpr_TI = {**pc_cpr, "sub_0_cpr_decoup": "TI"}
 
         pc_cpr_gmres = {"pc_type": "composite",
                 "pc_composite_type": "multiplicative",
@@ -376,7 +379,7 @@ class SinglePhase(ThermalModel):
                    "sub_pc_factor_levels": 1,
                    "mat_type": "aij",
                    }
-        
+
         if self.solver_parameters is None:
             self.solver_parameters = "pc_fieldsplit"
         
@@ -389,6 +392,10 @@ class SinglePhase(ThermalModel):
                 parameters.update(pc_fieldsplit_selfp)
             elif self.solver_parameters == "pc_cpr":
                 parameters.update(pc_cpr)
+            elif self.solver_parameters == "pc_cpr_QI":
+                parameters.update(pc_cpr_QI)
+            elif self.solver_parameters == "pc_cpr_TI":
+                parameters.update(pc_cpr_TI)
             elif self.solver_parameters == "pc_cpr_gmres":
                 parameters.update(pc_cpr_gmres)
             elif self.solver_parameters == "pc_fieldsplit_diag":
@@ -401,9 +408,15 @@ class SinglePhase(ThermalModel):
                 parameters.update(pc_lu)
             elif self.solver_parameters == "pc_bilu":    
                 parameters.update(pc_bilu)
+            
+            if "sub_0_cpr_decoup" in parameters:
+                self.decoup = parameters["sub_0_cpr_decoup"]
+            else:
+                self.decoup = "No"
+                
             self.solver_parameters = parameters
 
  
     @cached_property
     def appctx(self):
-        return {"pressure_space": 0, "temperature_space": 1, "params": self.params, "geo": self.geo, "dt": self.dt, "u_": self.u_, "case": self.case}
+        return {"pressure_space": 0, "temperature_space": 1, "params": self.params, "geo": self.geo, "dt": self.dt, "u_": self.u_, "case": self.case, "decoup": self.decoup}

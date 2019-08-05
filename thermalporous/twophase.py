@@ -382,11 +382,15 @@ class TwoPhase(ThermalModel):
                 "sub_0_pc_python_type": "thermalporous.preconditioners.CPRStage1PC",
                 "sub_0_cpr_stage1": v_cycle,
 
-                "sub_1_pc_bjacobi_blocks": 1,
                 "sub_1_sub_pc_type": "ilu",
                 "sub_1_sub_pc_factor_levels": 0,
                 "mat_type": "aij",
                 }
+        
+        pc_cpr_QI = {**pc_cpr, "sub_0_cpr_decoup": "QI"}
+        pc_cpr_TI = {**pc_cpr, "sub_0_cpr_decoup": "TI"}
+        pc_cpr_QI_temp = {**pc_cpr, "sub_0_cpr_decoup": "QI_temp"}
+        pc_cpr_TI_temp = {**pc_cpr, "sub_0_cpr_decoup": "TI_temp"}
 
         pc_cptr_a11 = {"pc_type": "composite",
                 "pc_composite_type": "multiplicative",
@@ -508,6 +512,14 @@ class TwoPhase(ThermalModel):
                 parameters.update(pc_cpr_gmres)
             elif self.solver_parameters == "pc_cpr":
                 parameters.update(pc_cpr)
+            elif self.solver_parameters == "pc_cpr_QI":
+                parameters.update(pc_cpr_QI)
+            elif self.solver_parameters == "pc_cpr_TI":
+                parameters.update(pc_cpr_TI)
+            elif self.solver_parameters == "pc_cpr_QI_temp":
+                parameters.update(pc_cpr_QI_temp)
+            elif self.solver_parameters == "pc_cpr_TI_temp":
+                parameters.update(pc_cpr_TI_temp)
             elif self.solver_parameters == "pc_cprilu1_gmres":
                 parameters.update(pc_cpr_gmres)                
             elif self.solver_parameters == "pc_ilu":
@@ -518,9 +530,15 @@ class TwoPhase(ThermalModel):
                 parameters.update(pc_lu)
             elif self.solver_parameters == "pc_bilu":    
                 parameters.update(pc_bilu)
+                
+            if "sub_0_cpr_decoup" in parameters:
+                self.decoup = parameters["sub_0_cpr_decoup"]
+            else:
+                self.decoup = "No"
+                
             self.solver_parameters = parameters
 
  
     @cached_property
     def appctx(self):
-        return {"pressure_space": 0, "temperature_space": 1, "saturation_space": 2, "params": self.params, "geo": self.geo, "dt": self.dt, "case": self.case, "u_": self.u_}
+        return {"pressure_space": 0, "temperature_space": 1, "saturation_space": 2, "params": self.params, "geo": self.geo, "dt": self.dt, "case": self.case, "u_": self.u_, "decoup": self.decoup}
