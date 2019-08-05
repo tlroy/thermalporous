@@ -1214,14 +1214,20 @@ class CPTRStage1PC(PCBase):
         appctx = self.get_appctx(pc)
         
         V = appctx["geo"].V
-        W = V*V*V
-        W22 = V*V
+        if appctx["vector"]:
+            W22 = VectorFunctionSpace(V.mesh(), "DQ", degree = 0, dim = 2)
+            W = W22*V
+            primary_is = (0)
+        else:
+            W = V*V*V
+            W22 = V*V
+            primary_is = (0,1)
         
         test = TestFunction(W)
         trial = TrialFunction(W)
         (a, bcs)  = self.form(pc, test, trial)
         splitter = ExtractSubBlock()
-        app = splitter.split(a, ((0, 1), (0, 1)))
+        app = splitter.split(a, (primary_is, primary_is))
         
         # might need to do something about bcs
         opts = PETSc.Options()
@@ -1250,27 +1256,34 @@ class CPTRStage1PC(PCBase):
         pc_schur.setOptionsPrefix(prefix + "cpr_stage1_")
         pc_schur.setFromOptions()
         pc_schur.setOperators(self.Atildepp)
-        
+        #from IPython import embed; embed()
         if pc_schur.getType() == "fieldsplit":
             pc_schur.setDM(W22.dm)
             pc_schur.setUp()
             _, k2 = pc_schur.getFieldSplitSubKSP()
             k2.pc.setDM(pc.getDM())
         elif pc_schur.getType() == "ksp":
-            pc_schur.getKSP().setOptionsPrefix(prefix + "cpr_stage1_ksp_")
-            pc_schur.getKSP().setFromOptions()
-            pc_schur.setDM(W22.dm)
-            pc_schur.setUp()
-            _, k2 = pc_schur.getKSP().getPC().getFieldSplitSubKSP()
-            k2.pc.setDM(pc.getDM())
+            if pc_schur.pc.getType() == "fieldsplit":
+                pc_schur.getKSP().setOptionsPrefix(prefix + "cpr_stage1_ksp_")
+                pc_schur.getKSP().setFromOptions()
+                pc_schur.setDM(W22.dm)
+                pc_schur.setUp()
+                _, k2 = pc_schur.getKSP().getPC().getFieldSplitSubKSP()
+                k2.pc.setDM(pc.getDM())
+        elif pc_schur.getType() == "hypre":
+                pc_schur.setDM(W22.dm)
+                pc_schur.setUp()
         
         self.pc_schur = pc_schur
         
         fdofs = W.dof_dset.field_ises 
         self.s_is = fdofs[-1]
-        self.pt_is = PETSc.IS().createGeneral(np.concatenate([iset.indices for iset in fdofs[:-1]]))
-        self.p_is = fdofs[0]
-        self.t_is = fdofs[1]   
+        if appctx["vector"]:
+            self.pt_is = fdofs[0]
+        else:
+            self.pt_is = PETSc.IS().createGeneral(np.concatenate([iset.indices for iset in fdofs[:-1]]))
+            #self.p_is = fdofs[0]
+            #self.t_is = fdofs[1]   
         
     def form(self, pc, test, trial):
         _, P = pc.getOperators()

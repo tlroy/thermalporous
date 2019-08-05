@@ -11,8 +11,8 @@ class ThermalModel:
         self.dt_init_fact = dt_init_fact
         self.dt = Constant(maxdt*24.0*3600.0)
         self.end = end # in days
+        #self.init_solver_parameters()
         self.init_variational_form()
-        self.init_solver_parameters()
         self.init_solver()
         
         self.checkpointing = {"save": False, "load": False, "savename": "initial", "loadname": "initial"}
