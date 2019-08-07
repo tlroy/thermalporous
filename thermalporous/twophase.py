@@ -26,7 +26,7 @@ class TwoPhase(ThermalModel):
         self.n_save = n_save
         self.small_dt_start = small_dt_start
         self.scaled_eqns = True # Weights equations such that they are of similar scale
-        self.pressure_eqn = True # Water equation -> pressure equation. Needed for Schur complement approach. 
+        self.pressure_eqn = True# Water equation -> pressure equation. Needed for Schur complement approach. 
         if self.geo.dim == 2:
             self.init_variational_form = self.init_variational_form_2D
         elif self.geo.dim == 3:
@@ -605,12 +605,12 @@ class TwoPhase(ThermalModel):
             elif self.solver_parameters == "pc_bilu":    
                 parameters.update(pc_bilu)
                 
-            if "sub_0_cpr_decoup" in parameters:
-                self.decoup = parameters["sub_0_cpr_decoup"]
-            else:
-                self.decoup = "No"
-                
             self.solver_parameters = parameters
+            
+        if "sub_0_cpr_decoup" in self.solver_parameters:
+            self.decoup = self.solver_parameters["sub_0_cpr_decoup"]
+        else:
+            self.decoup = "No"
 
  
     @cached_property
