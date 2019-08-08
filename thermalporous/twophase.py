@@ -26,7 +26,7 @@ class TwoPhase(ThermalModel):
         self.n_save = n_save
         self.small_dt_start = small_dt_start
         self.scaled_eqns = True # Weights equations such that they are of similar scale
-        self.pressure_eqn = True# Water equation -> pressure equation. Needed for Schur complement approach. 
+        self.pressure_eqn = True # Water equation -> pressure equation. Needed for Schur complement approach. 
         if self.geo.dim == 2:
             self.init_variational_form = self.init_variational_form_2D
         elif self.geo.dim == 3:
@@ -233,10 +233,18 @@ class TwoPhase(ThermalModel):
         self.u = Function(W)
         self.u_ = Function(W)
 
-        (p, T, S_o) = split(self.u)
-        (p_, T_, S_o_) = split(self.u_)
-
-        q, r, s = TestFunctions(W)
+        if self.vector:
+            (pT, S_o) = split(self.u)
+            (p, T) = split(pT)
+            (pT_, S_o_) = split(self.u_)
+            (p_, T_) = split(pT_)
+            qr, s = TestFunctions(W)
+            q, r = split(qr)
+        else:
+            (p, T, S_o) = split(self.u)
+            (p_, T_, S_o_) = split(self.u_)
+            q, r, s = TestFunctions(W)
+        
         
 
         
@@ -419,6 +427,20 @@ class TwoPhase(ThermalModel):
                 }
         pc_cptramg_QI = {**pc_cptramg, "sub_0_cpr_decoup": "QI"}
         pc_cptramg_TI = {**pc_cptramg, "sub_0_cpr_decoup": "TI"}
+        
+        pc_cptrlu = {"pc_type": "composite",
+        "pc_composite_type": "multiplicative",
+        "pc_composite_pcs": "python,bjacobi",
+
+        "sub_0_pc_python_type": "thermalporous.preconditioners.CPTRStage1PC",
+        "sub_0_cpr_stage1_pc_type": "lu",
+        
+        "sub_1_sub_pc_type": "ilu",
+        "sub_1_sub_pc_factor_levels": 0,
+        "mat_type": "aij",
+                }
+        pc_cptrlu_QI = {**pc_cptrlu, "sub_0_cpr_decoup": "QI"}
+        pc_cptrlu_TI = {**pc_cptrlu, "sub_0_cpr_decoup": "TI"}
 
         pc_cpr = {"pc_type": "composite",
                 "pc_composite_type": "multiplicative",
@@ -575,6 +597,15 @@ class TwoPhase(ThermalModel):
             if self.solver_parameters == "pc_cptramg_TI":
                 parameters.update(pc_cptramg_TI)
                 self.vector = True
+            if self.solver_parameters == "pc_cptrlu":
+                parameters.update(pc_cptrlu)
+                self.vector = True
+            if self.solver_parameters == "pc_cptrlu_QI":
+                parameters.update(pc_cptrlu_QI)
+                self.vector = True
+            if self.solver_parameters == "pc_cptrlu_TI":
+                parameters.update(pc_cptrlu_TI)
+                self.vector = True                
             if self.solver_parameters == "pc_cptramg_gmres":
                 parameters.update(pc_cptramg_gmres)
                 self.vector = True
