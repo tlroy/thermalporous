@@ -626,7 +626,7 @@ class TwoPhase(ThermalModel):
             elif self.solver_parameters == "pc_cpr_TI_temp":
                 parameters.update(pc_cpr_TI_temp)
             elif self.solver_parameters == "pc_cprilu1_gmres":
-                parameters.update(pc_cpr_gmres)                
+                parameters.update(pc_cprilu1_gmres)                
             elif self.solver_parameters == "pc_ilu":
                 parameters.update(pc_ilu)
             elif self.solver_parameters == "pc_hypre":    

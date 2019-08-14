@@ -21,6 +21,7 @@ class SinglePhase(ThermalModel):
         self.small_dt_start = small_dt_start
         self.vector = vector
         self.solver_parameters = solver_parameters
+        self.init_solver_parameters()
         self.scaled_eqns = False
         if self.geo.dim == 2:
             self.init_variational_form = self.init_variational_form_2D
@@ -415,13 +416,14 @@ class SinglePhase(ThermalModel):
                 parameters.update(pc_lu)
             elif self.solver_parameters == "pc_bilu":    
                 parameters.update(pc_bilu)
-            
-            if "sub_0_cpr_decoup" in parameters:
-                self.decoup = parameters["sub_0_cpr_decoup"]
-            else:
-                self.decoup = "No"
-                
+        
             self.solver_parameters = parameters
+
+        if "sub_0_cpr_decoup" in self.solver_parameters:
+            self.decoup = self.solver_parameters["sub_0_cpr_decoup"]
+        else:
+            self.decoup = "No"
+                
 
  
     @cached_property
