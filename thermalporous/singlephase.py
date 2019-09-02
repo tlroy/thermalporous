@@ -216,7 +216,7 @@ class SinglePhase(ThermalModel):
         a_advec_z = K_z_facet*conditional(gt(z_flow, 0.0), T('+')*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v*jump(r)*z_flow*dS_h
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*(dS_v + dS_h)
 
-        a = m_w*a_accum + m_wa_flow + m_w*a_Eaccum + a_diff + a_advec + a_flow_z + a_advec_z
+        a = m_w*a_accum + m_w*a_flow + m_w*a_Eaccum + a_diff + a_advec + a_flow_z + a_advec_z
         self.F = a 
 
         rhow_o = oil_rho(p, T)
