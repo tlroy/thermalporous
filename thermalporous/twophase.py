@@ -528,9 +528,9 @@ class TwoPhase(ThermalModel):
                 "sub_0_fieldsplit_0_fieldsplit_1_ksp_type": "preonly",
                 "sub_0_fieldsplit_0_fieldsplit_1_pc_type": "python",
                 "sub_0_fieldsplit_0_fieldsplit_1_pc_python_type": "thermalporous.preconditioners.ConvDiffSchurTwoPhasesPC",
-                "sub_0_fieldsplit_0_fieldsplit_1_schur": lu,
+                "sub_0_fieldsplit_0_fieldsplit_1_schur": v_cycle,
                 
-                "sub_0_fieldsplit_0_fieldsplit_0": lu,       
+                "sub_0_fieldsplit_0_fieldsplit_0": v_cycle,       
                 
                 "sub_0_fieldsplit_1_ksp_type": "gmres",
                 "sub_0_fieldsplit_1_ksp_max_it": 0,

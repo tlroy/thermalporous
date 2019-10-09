@@ -76,7 +76,9 @@ class SinglePhase(ThermalModel):
 
         q, r = TestFunctions(W)
         
-
+        
+        rho_o = oil_rho(p,T)
+        mu_o = oil_mu(T)
         
         # Define facet quantities
         n = FacetNormal(mesh)
@@ -101,19 +103,20 @@ class SinglePhase(ThermalModel):
         else:
             m_w = 1.0
 
+        
         ## Solve a coupled problem 
         # conservation of mass equation
-        a_accum = phi*(oil_rho(p,T) - oil_rho(p_,T_))/self.dt*q*dx
-        a_flow = K_facet*conditional(gt(jump(p), 0.0), oil_rho(p('+'),T('+'))/oil_mu(T('+')), oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS
+        a_accum = phi*(rho_o - oil_rho(p_,T_))/self.dt*q*dx
+        a_flow = K_facet*conditional(gt(jump(p), 0.0), rho_o('+')/mu_o('+'), rho_o('-')/mu_o('-'))*jump(q)*jump(p)/Delta_h*dS
         # conservation of energy equation
-        a_Eaccum = phi*c_v*(oil_rho(p,T)*T - oil_rho(p_,T_)*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
-        a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v*jump(r)*jump(p)/Delta_h*dS
+        a_Eaccum = phi*c_v*(rho_o*T - oil_rho(p_,T_)*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
+        a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*rho_o('+')/mu_o('+'), T('-')*rho_o('-')/mu_o('-'))*c_v*jump(r)*jump(p)/Delta_h*dS
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*dS
 
         a = m_w*a_accum + m_w*a_flow + a_Eaccum + a_diff + a_advec
         self.F = a
 
-        rhow_o = oil_rho(p, T)
+        rhow_o = rho_o
         rhow = oil_rho(p, T_inj)
 
         ## Source terms using global deltas
@@ -176,7 +179,8 @@ class SinglePhase(ThermalModel):
 
         q, r = TestFunctions(W)
         
-
+        rho_o = oil_rho(p,T)
+        mu_o = oil_mu(p,T)
         
         # Define facet quantities
         n = FacetNormal(mesh)
@@ -197,7 +201,7 @@ class SinglePhase(ThermalModel):
         
         kT_facet = conditional(gt(avg(kT), 0.0), kT('+')*kT('-') / avg(kT), 0.0)        
         
-        z_flow = jump(p)/Delta_h - g*avg(oil_rho(p,T))
+        z_flow = jump(p)/Delta_h - g*avg(rho_o)
         
         # Weight for mass equation
         if self.scaled_eqns:
@@ -205,21 +209,22 @@ class SinglePhase(ThermalModel):
         else:
             m_w = 1.0
         
+        
         ## Solve a coupled problem 
         # conservation of mass equation
-        a_accum = phi*(oil_rho(p,T) - oil_rho(p_,T_))/self.dt*q*dx
-        a_flow = K_facet*conditional(gt(jump(p), 0.0), oil_rho(p('+'),T('+'))/oil_mu(T('+')), oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS_v
-        a_flow_z = K_z_facet*conditional(gt(z_flow, 0.0), oil_rho(p('+'),T('+'))/oil_mu(T('+')), oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*z_flow*dS_h
+        a_accum = phi*(rho_o - oil_rho(p_,T_))/self.dt*q*dx
+        a_flow = K_facet*conditional(gt(jump(p), 0.0), rho_o('+')/mu_o('+'), rho_o('-')/mu_o('-'))*jump(q)*jump(p)/Delta_h*dS_v
+        a_flow_z = K_z_facet*conditional(gt(z_flow, 0.0), rho_o('+')/mu_o('+'), rho_o('-')/mu_o('-'))*jump(q)*z_flow*dS_h
         # conservation of energy equation
-        a_Eaccum = phi*c_v*(oil_rho(p,T)*T - oil_rho(p_,T_)*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
-        a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v*jump(r)*jump(p)/Delta_h*dS_v
-        a_advec_z = K_z_facet*conditional(gt(z_flow, 0.0), T('+')*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v*jump(r)*z_flow*dS_h
+        a_Eaccum = phi*c_v*(rho_o*T - oil_rho(p_,T_)*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
+        a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*rho_o('+')/mu_o('+'), T('-')*rho_o('-')/mu_o('-'))*c_v*jump(r)*jump(p)/Delta_h*dS_v
+        a_advec_z = K_z_facet*conditional(gt(z_flow, 0.0), T('+')*rho_o('+')/mu_o('+'), T('-')*rho_o('-')/mu_o('-'))*c_v*jump(r)*z_flow*dS_h
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*(dS_v + dS_h)
 
         a = m_w*a_accum + m_w*a_flow + m_w*a_Eaccum + a_diff + a_advec + a_flow_z + a_advec_z
         self.F = a 
 
-        rhow_o = oil_rho(p, T)
+        rhow_o = rho_o
         rhow = oil_rho(p, T_inj)
 
         ## Source terms using global deltas

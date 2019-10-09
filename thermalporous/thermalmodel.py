@@ -153,7 +153,6 @@ class ThermalModel:
             while True:
                 try:
                     self.solver.solve() 
-                    
                     if self.name == "Two-phase":
                         print(np.max(u.dat.data[self.i_S_o]))
                 except exceptions.ConvergenceError:
