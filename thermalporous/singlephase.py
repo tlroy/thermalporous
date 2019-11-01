@@ -16,6 +16,7 @@ class SinglePhase(ThermalModel):
             self.W = VectorFunctionSpace(self.mesh, "DQ", degree = 0, dim = 2)
         else:
             self.W = self.V*self.V
+        geo.W = self.W
         self.save = save
         self.n_save = n_save
         self.small_dt_start = small_dt_start
@@ -180,7 +181,7 @@ class SinglePhase(ThermalModel):
         q, r = TestFunctions(W)
         
         rho_o = oil_rho(p,T)
-        mu_o = oil_mu(p,T)
+        mu_o = oil_mu(T)
         
         # Define facet quantities
         n = FacetNormal(mesh)

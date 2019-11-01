@@ -18,7 +18,6 @@ class ThermalModel:
         self.checkpointing = {"save": False, "load": False, "savename": "initial", "loadname": "initial"}
         self.checkpointing.update(checkpointing)
         self.filename = filename
-        
         try:
             self.initial_condition = self.case.init_IC(phases = self.name)
         except AttributeError:

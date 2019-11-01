@@ -22,6 +22,7 @@ class TwoPhase(ThermalModel):
         else:
             self.W = self.V*self.V*self.V
             self.i_S_o = 2
+        geo.W = self.W
         self.save = save
         self.n_save = n_save
         self.small_dt_start = small_dt_start
