@@ -2,10 +2,11 @@ from firedrake import *
 from thermalporous.rectanglegeo import RectangleGeo
 
 class HomogeneousGeo(RectangleGeo):
-    def __init__(self, Nx, Ny, params, Length, Length_y):
+    def __init__(self, Nx, Ny, params, Length, Length_y, mg = {}):
         self.geotype = "Homogeneous"
-        self.name = self.geotype + " " + str(Nx) + "X" + str(Ny) + " grid"
-        RectangleGeo.__init__(self, Nx, Ny, params, Length, Length_y)
+        
+        RectangleGeo.__init__(self, Nx, Ny, params, Length, Length_y, mg)
+        self.name = self.geotype + " " + str(self.Nx) + "X" + str(self.Ny) + " grid"
         
     def generate_geo_fields(self):
         # Create DG function for porosity field

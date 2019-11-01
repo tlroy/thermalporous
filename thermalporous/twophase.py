@@ -387,6 +387,17 @@ class TwoPhase(ThermalModel):
                     "pc_hypre_type" : "boomeramg",
                     "pc_hypre_boomeramg_max_iter": 1,
                     }   
+        
+        mg_v_cycle = {"ksp_type": "preonly",
+                      "pc_type": "mg",
+                     }
+        
+        v_cycle = mg_v_cycle
+        
+        mg_python = {"ksp_type": "preonly",
+                     "pc_type": "python",
+                     "pc_python_type": "firedrake.AssembledPC",
+                     }
 
         lu = {"ksp_type": "preonly",
               "pc_type": "lu",}
