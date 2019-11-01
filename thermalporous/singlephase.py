@@ -275,13 +275,14 @@ class SinglePhase(ThermalModel):
             f1 = 0
             self.idorder = "temperature-pressure ordering for fieldsplit"
             
-        parameters = {
+        newton = {
                 "snes_type": "newtonls",
                 "snes_monitor": None,
                 "snes_converged_reason": None, 
                 "snes_max_it": 15,
 
-                "ksp_type": "fgmres",
+                "ksp_type": "gmres",
+                "ksp_pc_side": "right",
                 "ksp_converged_reason": None, 
 
                 "ksp_max_it": 200,
@@ -392,6 +393,8 @@ class SinglePhase(ThermalModel):
                    "sub_pc_factor_levels": 1,
                    "mat_type": "aij",
                    }
+        
+        parameters = newton
 
         if self.solver_parameters is None:
             self.solver_parameters = "pc_fieldsplit"
