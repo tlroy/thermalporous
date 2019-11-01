@@ -51,7 +51,16 @@ class PhysicalParameters():
         Tf = 1.8*(T - 273.15) + 32.0 # temperature in Fahrenheit
         return 1E-3*( 10.0**(A1*self.API + A2) * Tf**(A3*self.API + A4) )
     
-    
+    def civan_oil_mu(self, T):
+        # Formula from Civan 2006
+        # Valid for API 20<50
+        # errors given form 130F < T < 220F
+        T_c = 460 # 460 Rankine, reference temperature
+        TR = 1.8*T # temperature in Rankine
+        C = 0.2881*self.API**2 - 26.314*self.API + 925.74
+        ln_mu_c = -0.0739*self.API + 1.1697
+        return 1e-3*e**(ln_mu_c + C/(TR-T_c))
+
     def water_rho(self, p, T):
         # Trangenstein's modification of Kell's 1975 correlation
         E_0 = 999.83952
