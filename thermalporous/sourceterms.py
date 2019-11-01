@@ -72,7 +72,7 @@ class SourceTerms():
                 prod_points = [[Lx/8, Ly/2, Lz*0.2], [Lx/4, Ly/2, Lz*0.2], [3*Lx/8, Ly/2, Lz*0.2], [Lx/2, Ly/2, Lz*0.2], [5*Lx/8, Ly/2, Lz*0.2], [3*Lx/4, Ly/2, Lz*0.2], [7*Lx/8, Ly/2, Lz*0.2]] + [[Lx/8, Ly/4, Lz*0.2], [Lx/4, Ly/4, Lz*0.2], [3*Lx/8, Ly/4, Lz*0.2], [Lx/2, Ly/4, Lz*0.2], [5*Lx/8, Ly/4, Lz*0.2], [3*Lx/4, Ly/4, Lz*0.2], [7*Lx/8, Ly/4, Lz*0.2]] + [[Lx/8, 3*Ly/4, Lz*0.2], [Lx/4, 3*Ly/4, Lz*0.2], [3*Lx/8, 3*Ly/4, Lz*0.2], [Lx/2, 3*Ly/4, Lz*0.2], [5*Lx/8, 3*Ly/4, Lz*0.2], [3*Lx/4, 3*Ly/4, Lz*0.2], [7*Lx/8, Ly/4, Lz*0.2]]
                 inj_points = [[Lx/8, Ly/2, Lz*0.8], [Lx/4, Ly/2, Lz*0.8], [3*Lx/8, Ly/2, Lz*0.8], [Lx/2, Ly/2, Lz*0.8], [5*Lx/8, Ly/2, Lz*0.8], [3*Lx/4, Ly/2, Lz*0.8], [7*Lx/8, Ly/2, Lz*0.8]] + [[Lx/8, Ly/4, Lz*0.8], [Lx/4, Ly/4, Lz*0.8], [3*Lx/8, Ly/4, Lz*0.8], [Lx/2, Ly/4, Lz*0.8], [5*Lx/8, Ly/4, Lz*0.8], [3*Lx/4, Ly/4, Lz*0.8], [7*Lx/8, Ly/4, Lz*0.8]] + [[Lx/8, 3*Ly/4, Lz*0.8], [Lx/4, 3*Ly/4, Lz*0.8], [3*Lx/8, 3*Ly/4, Lz*0.8], [Lx/2, 3*Ly/4, Lz*0.8], [5*Lx/8, 3*Ly/4, Lz*0.8], [3*Lx/4, 3*Ly/4, Lz*0.8], [7*Lx/8, Ly/4, Lz*0.8]]
         
-        self.init_deltas(prod_points, inj_points, heater_points, 'delta')
+        self.init_deltas(prod_points, inj_points, heater_points, 'circle')
 
     def init_deltas(self, prod_points, inj_points, heater_points, well_func):
         if well_func == 'delta':
