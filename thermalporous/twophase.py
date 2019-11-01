@@ -392,7 +392,7 @@ class TwoPhase(ThermalModel):
                       "pc_type": "mg",
                      }
         
-        v_cycle = mg_v_cycle
+        #v_cycle = mg_v_cycle
         
         mg_python = {"ksp_type": "preonly",
                      "pc_type": "python",
