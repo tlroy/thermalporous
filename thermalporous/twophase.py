@@ -367,9 +367,14 @@ class TwoPhase(ThermalModel):
             self.F -= tmp*self.params.U*(T_inj-T)*r*dx
 
     def init_solver_parameters(self):
-
-        parameters = {
+        snes_atol = 1e-8
+        snes_rtol = 1e-8
+        newton_krylov = {
                 "snes_type": "newtonls",
+                #"snes_linesearch_type": "l2",
+                #"snes_linesearch_maxstep": 1,
+                "snes_rtol": snes_rtol,
+                "snes_atol": snes_atol,
                 "snes_monitor": None,
                 "snes_converged_reason": None, 
                 "snes_max_it": 15,
@@ -402,6 +407,62 @@ class TwoPhase(ThermalModel):
 
         lu = {"ksp_type": "preonly",
               "pc_type": "lu",}
+
+        faspardecomp = {}
+        ngmresfaspardecomp = {
+               "mat_type": "matfree",
+               "snes_type": "ngmres",
+               "snes_monitor": None,
+               "snes_max_it": 100,
+               "snes_npc_side": "right",
+               "snes_atol": snes_atol,
+               "snes_rtol": snes_rtol,
+               "snes_converged_reason": None,
+               "npc_snes_type": "fas",
+               "npc_snes_fas_cycles": 1,
+               "npc_snes_fas_type": "kaskade",
+               "npc_snes_fas_galerkin": False,
+               "npc_snes_fas_full_downsweep": False,
+               #"npc_snes_monitor": None,
+               "npc_snes_max_it": 1,
+               "npc_fas_levels_snes_type": "python",
+               "npc_fas_levels_snes_python_type": "firedrake.PatchSNES",
+               "npc_fas_levels_snes_max_it": 1,
+               "npc_fas_levels_snes_convergence_test": "skip",
+               #"npc_fas_levels_snes_converged_reason": None,
+               #"npc_fas_levels_snes_monitor": None,
+               "npc_fas_levels_snes_linesearch_type": "basic",
+               "npc_fas_levels_snes_linesearch_damping": 1.0,
+               "npc_fas_levels_patch_snes_patch_construct_type": "pardecomp",
+               "npc_fas_levels_patch_snes_patch_pardecomp_overlap": 1,
+               "npc_fas_levels_patch_snes_patch_partition_of_unity": True,
+               "npc_fas_levels_patch_snes_patch_sub_mat_type": "seqaij",
+               "npc_fas_levels_patch_snes_patch_local_type": "additive",
+               "npc_fas_levels_patch_snes_patch_symmetrise_sweep": False,
+               "npc_fas_levels_patch_sub_snes_type": "newtonls",
+               #"npc_fas_levels_patch_sub_snes_monitor": None,
+               "npc_fas_levels_patch_sub_snes_atol": 1.0e-11,
+               "npc_fas_levels_patch_sub_snes_rtol": 1.0e-11,
+               #"npc_fas_levels_patch_sub_snes_converged_reason": None,
+               "npc_fas_levels_patch_sub_snes_linesearch_type": "basic",
+               "npc_fas_levels_patch_sub_ksp_type": "preonly",
+               "npc_fas_levels_patch_sub_pc_type": "lu",
+               "npc_fas_levels_patch_sub_pc_factor_mat_solver_type": "umfpack",
+               "npc_fas_coarse_snes_type": "newtonls",
+               #"npc_fas_coarse_snes_monitor": None,
+               #"npc_fas_coarse_snes_converged_reason": None,
+               "npc_fas_coarse_snes_max_it": 100,
+               "npc_fas_coarse_snes_atol": 1.0e-14,
+               "npc_fas_coarse_snes_rtol": 1.0e-14,
+               "npc_fas_coarse_snes_linesearch_type": "l2",
+               "npc_fas_coarse_ksp_type": "preonly",
+               "npc_fas_coarse_ksp_max_it": 1,
+               "npc_fas_coarse_pc_type": "python",
+               "npc_fas_coarse_pc_python_type": "firedrake.AssembledPC",
+               "npc_fas_coarse_assembled_mat_type": "aij",
+               "npc_fas_coarse_assembled_pc_type": "lu",
+               "npc_fas_coarse_assembled_pc_factor_mat_solver_type": "mumps",
+                }
 
         pc_cptr = {"pc_type": "composite",
                 "pc_composite_type": "multiplicative",
@@ -580,6 +641,13 @@ class TwoPhase(ThermalModel):
                   "mat_type": "aij",
                   }
         
+        pc_mg = {"pc_type": "mg",
+                 "mat_type": "aij",
+                 "mg_coarse_ksp_type": "preonly",
+                 "mg_coarse_pc_type": "python",
+                 "mg_coarse_pc_python_type": "firedrake.AssembledPC",
+                 "mg_coarse_assembed_pc_type": "lu",
+                 "mg_coarse_assembled_mat_view": None,}
 
         pc_lu = {"ksp_type": "preonly",
                  "mat_type": "aij",
@@ -593,6 +661,7 @@ class TwoPhase(ThermalModel):
                    "mat_type": "aij",
                    }
 
+        parameters = newton_krylov
 
         if self.solver_parameters is None:
             self.solver_parameters = "pc_cptr_gmres"
@@ -647,7 +716,13 @@ class TwoPhase(ThermalModel):
                 parameters.update(pc_lu)
             elif self.solver_parameters == "pc_bilu":    
                 parameters.update(pc_bilu)
-                
+            elif self.solver_parameters == "pc_mg":    
+                parameters.update(pc_mg)
+            elif self.solver_parameters == "faspardecomp":
+                parameters = faspardecomp
+            elif self.solver_parameters == "ngmresfaspardecomp":
+                parameters = ngmresfaspardecomp
+
             self.solver_parameters = parameters
             
         if "sub_0_cpr_decoup" in self.solver_parameters:

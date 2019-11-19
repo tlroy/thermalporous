@@ -57,7 +57,7 @@ class RectangleGeo():
         distribution_parameters={"partition": True, "overlap_type": (DistributedMeshOverlapType.VERTEX, 2)} # or FACET?
         #from IPython import embed; embed()
         base = RectangleMesh(nx, ny, Length, Length_y, quadrilateral=True, distribution_parameters=distribution_parameters)
-        mh = MeshHierarchy(base, nref, distribution_parameters=distribution_parameters)
+        mh = MeshHierarchy(base, nref)
         mesh = mh[-1]
         return mesh
         

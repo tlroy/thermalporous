@@ -2,10 +2,10 @@ from firedrake import *
 from thermalporous.boxgeo import BoxGeo
 
 class HomogeneousBoxGeo(BoxGeo):
-    def __init__(self, Nx, Ny, Nz, params, Length = 365.76, Length_y = 365.76, Length_z = 365.76):
+    def __init__(self, Nx, Ny, Nz, params, Length = 365.76, Length_y = 365.76, Length_z = 365.76, mg = None):
         self.geotype = "Homogeneous"
         self.name = self.geotype + " " + str(Nx) + "X" + str(Ny) + "X" + str(Nz) + " grid"
-        BoxGeo.__init__(self, Nx, Ny, Nz, params, Length = Length, Length_y = Length_y, Length_z = Length_z)
+        BoxGeo.__init__(self, Nx, Ny, Nz, params, Length = Length, Length_y = Length_y, Length_z = Length_z, mg = mg)
         
     def generate_geo_fields(self):
         # Create DG function for porosity field

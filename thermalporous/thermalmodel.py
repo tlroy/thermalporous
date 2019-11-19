@@ -178,7 +178,7 @@ class ThermalModel:
                 if self.comm.rank == 0:
                     print("Total oil mass in reservoir: ", mass_o)
                 Sat = u.dat.data[self.i_S_o]
-                epsilon = 1e-20
+                epsilon = 1e-10
                 local_chop = (np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon,)
                 from mpi4py import MPI
                 global_chop = (False,)
