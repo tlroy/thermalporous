@@ -2,6 +2,7 @@ import numpy as np
 
 from firedrake import *
 import thermalporous.utils as utils
+from datetime import datetime
 
 class ThermalModel:
         
@@ -137,7 +138,10 @@ class ThermalModel:
         lits_vec = []
         dt_vec = []
         epsilon = np.finfo(float).eps
-        
+        timings = []
+
+        start_cpu = datetime.now()
+        old_cpu = start_cpu
         while (t < end):
             i += 1
             previous_fail = 0
@@ -333,9 +337,11 @@ class ThermalModel:
             current_dt = self.dt.values()[0] 
             if current_dt > end-t and t < end:
                 self.dt.assign(end-t)
-            
-                    
-         
+            now_cpu = datetime.now()
+            timings.append((now_cpu-old_cpu).total_seconds())
+            old_cpu = now_cpu
+
+        end_cpu = datetime.now()
         # Save final solution for convergence test
         #self.u.assign(u)
         #self.u_.assign(u_)
@@ -353,6 +359,7 @@ class ThermalModel:
             self.resultprint("nits = ", nits_vec, ";")
             self.resultprint("lits = ", lits_vec, ";")
             self.resultprint("dts = ", dt_vec, ";")
+            self.resultprint("timings = ", timings, ";")
             
             # Model details
             self.resultprint("----------------------------------------------------------------------")
@@ -375,6 +382,7 @@ class ThermalModel:
             self.resultprint(" ")
             self.resultprint("Solver performance")
             self.resultprint("------------------")
+            self.resultprint("Total CPU time (s):", (end_cpu-start_cpu).total_seconds())
             avg_nitdt = total_nits/dt_counter
             avg_litdt = total_lits/dt_counter
             avg_litnit = avg_litdt/avg_nitdt
