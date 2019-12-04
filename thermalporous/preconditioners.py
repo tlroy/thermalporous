@@ -18,7 +18,7 @@ class ConvDiffSchurPC(PCBase):
         _, P = pc.getOperators()
 
         appctx = self.get_appctx(pc)
-
+        fcp = appctx.get("form_compiler_parameters")
 
         case = appctx["case"]
         state = appctx["state"]
@@ -116,19 +116,36 @@ class ConvDiffSchurPC(PCBase):
         if tnullsp.handle != 0:
             Pmat.setTransposeNullSpace(tnullsp)
 
+        from firedrake.variational_solver import NonlinearVariationalProblem
+        from firedrake.solving_utils import _SNESContext
+        dm = pc.getDM()
+        octx = get_appctx(dm)
+        oproblem = octx._problem
+        nproblem = NonlinearVariationalProblem(oproblem.F, oproblem.u, bcs=octx._problem.bcs, J=octx.J, form_compiler_parameters=fcp)
+        self._ctx_ref = _SNESContext(nproblem, self.mat_type, self.mat_type, octx.appctx)
+
+
         ksp = PETSc.KSP().create()
         ksp.incrementTabLevel(1, parent=pc)
+        ksp.getPC().setDM(dm)
         ksp.setOperators(Pmat)
         ksp.setOptionsPrefix(prefix + "schur_")
-        ksp.setFromOptions()
-        ksp.setUp()
+        
+        with dmhooks.add_hooks(dm, self, appctx=self._ctx_ref, save=False):
+            ksp.setFromOptions()
+        with dmhooks.add_hooks(dm, self, appctx=self._ctx_ref):
+            ksp.setUp()
+        
+        #from IPython import embed; embed()
         self.ksp = ksp
 
     def update(self, pc):
         self._assemble_A()
 
     def apply(self, pc, X, Y):
-        self.ksp.solve(X, Y)
+        dm = pc.getDM()
+        with dmhooks.add_hooks(dm, self, appctx=self._ctx_ref):
+            self.ksp.solve(X, Y)
 
     # should not be used
     applyTranspose = apply
