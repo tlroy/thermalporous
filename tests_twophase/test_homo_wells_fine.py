@@ -16,7 +16,7 @@ params.S_o = 0.9
 
 
 # checkpointing and saving
-savepvd = True
+savepvd = False
 import os
 suffix = os.path.splitext(__file__)[0]
 
