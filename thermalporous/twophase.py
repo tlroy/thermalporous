@@ -377,7 +377,7 @@ class TwoPhase(ThermalModel):
                 #"snes_atol": snes_atol,
                 "snes_monitor": None,
                 "snes_converged_reason": None, 
-                "snes_max_it": 15,
+                "snes_max_it": 20,
 
                 "ksp_type": "fgmres",
                 "ksp_converged_reason": None, 
@@ -630,6 +630,25 @@ class TwoPhase(ThermalModel):
                             "sub_1_sub_pc_factor_levels": 0,
                             "mat_type": "aij",
                             }
+        
+        pc_cptrlu_gmres =  {"pc_type": "composite",
+                "pc_composite_type": "multiplicative",
+                "pc_composite_pcs": "fieldsplit,bjacobi",
+                
+                "sub_0_pc_fieldsplit_0_fields": "0,1",
+                "sub_0_pc_fieldsplit_1_fields": "2",
+                "sub_0_pc_fieldsplit_type": "additive",
+                
+                "sub_0_fieldsplit_0_pc_type": "lu",
+                
+                "sub_0_fieldsplit_1_ksp_type": "gmres",
+                "sub_0_fieldsplit_1_ksp_max_it": 0,
+                "sub_0_fieldsplit_1_pc_type": "none",
+
+                "sub_1_sub_pc_type": "ilu",
+                "sub_1_sub_pc_factor_levels": 0,
+                "mat_type": "aij",
+                }
 
         pc_ilu = {"pc_type": "ilu",
                   "pc_factor_levels": 0,
@@ -694,6 +713,8 @@ class TwoPhase(ThermalModel):
                 parameters.update(pc_cptr_a11)    
             elif self.solver_parameters == "pc_cptr_gmres":
                 parameters.update(pc_cptr_gmres)
+            elif self.solver_parameters == "pc_cptrlu_gmres":
+                parameters.update(pc_cptrlu_gmres)
             elif self.solver_parameters == "pc_cpr_gmres":
                 parameters.update(pc_cpr_gmres)
             elif self.solver_parameters == "pc_cpr":
