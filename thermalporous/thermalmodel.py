@@ -140,8 +140,8 @@ class ThermalModel:
         epsilon = np.finfo(float).eps
         timings = []
 
-        start_cpu = datetime.now()
-        old_cpu = start_cpu
+        #start_cpu = datetime.now()
+        #old_cpu = start_cpu
         while (t < end):
             i += 1
             previous_fail = 0
@@ -155,7 +155,10 @@ class ThermalModel:
                     
             while True:
                 try:
+                    old_cpu = datetime.now()
                     self.solver.solve() 
+                    now_cpu = datetime.now()
+                    timings.append((now_cpu-old_cpu).total_seconds())
                     if self.name == "Two-phase":
                         print(np.max(u.dat.data[self.i_S_o]))
                 except exceptions.ConvergenceError:
@@ -337,9 +340,9 @@ class ThermalModel:
             current_dt = self.dt.values()[0] 
             if current_dt > end-t and t < end:
                 self.dt.assign(end-t)
-            now_cpu = datetime.now()
-            timings.append((now_cpu-old_cpu).total_seconds())
-            old_cpu = now_cpu
+            #now_cpu = datetime.now()
+            #timings.append((now_cpu-old_cpu).total_seconds())
+            #old_cpu = now_cpu
 
         end_cpu = datetime.now()
         # Save final solution for convergence test
@@ -382,7 +385,8 @@ class ThermalModel:
             self.resultprint(" ")
             self.resultprint("Solver performance")
             self.resultprint("------------------")
-            self.resultprint("Total CPU time (s):", (end_cpu-start_cpu).total_seconds())
+            #self.resultprint("Total CPU time (s):", (end_cpu-start_cpu).total_seconds())
+            self.resultprint("Total CPU time (s):", sum(timings))
             avg_nitdt = total_nits/dt_counter
             avg_litdt = total_lits/dt_counter
             avg_litnit = avg_litdt/avg_nitdt
