@@ -34,10 +34,10 @@ maxdt = dt
 
 # GEO
 N = sys.argv[3]
-N = float(N)
+N = int(N)
 Nx = N
 Ny = N
-L = 20
+L = 20.
 
 geo = GeoModel(Nx, Ny, params, L, L)
 Length = geo.Length
@@ -49,16 +49,17 @@ geo.K_y = geo.K_y
 prod_points = [[Length/4, Length_y/2]]
 inj_points = [[3*Length/4, Length_y/2]]
 case = TestCase(params, geo, well_case = "test0", constant_rate = True)#, prod_points = prod_points, inj_points = inj_points)
+#case = TestCase(params, geo, prod_points = [], inj_points = [], constant_rate = True)
 
 parameters = {
         "snes_type": "newtonls",
-        "snes_monitor": True,
-        "snes_converged_reason": True, 
+        "snes_monitor": None,
+        "snes_converged_reason": None, 
         "snes_max_it": 15,
 
         "ksp_type": "fgmres",
-        "ksp_converged_reason": True, 
-        "ksp_view": False,
+        "ksp_converged_reason": None, 
+        #"ksp_view": None,
         "ksp_max_it": 200,
         #"ksp_view": True,
         }

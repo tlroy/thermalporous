@@ -5,7 +5,7 @@ from thermalporous.thermalmodel import ThermalModel
 
 from firedrake.utils import cached_property
 class TwoPhase(ThermalModel):
-    def __init__(self, geo, case, params, end = 1.0, maxdt = 0.005, save = False, n_save = 2, small_dt_start = True, checkpointing = {}, solver_parameters = None, filename = "results/results.txt", dt_init_fact = 2**(-10), vector = False):
+    def __init__(self, geo, case, params, end = 1.0, maxdt = 0.005, save = False, n_save = 2, small_dt_start = True, checkpointing = {}, solver_parameters = None, filename = "results/results.txt", dt_init_fact = 2**(-10), vector = False, gravity2D = False):
         self.name = "Two-phase"
         self.geo = geo
         self.case = case
@@ -28,6 +28,7 @@ class TwoPhase(ThermalModel):
         self.small_dt_start = small_dt_start
         self.scaled_eqns = True # Weights equations such that they are of similar scale
         self.pressure_eqn = True # Water equation -> pressure equation. Needed for Schur complement approach. 
+        self.geo.gravity2D = gravity2D
         if self.geo.dim == 2:
             self.init_variational_form = self.init_variational_form_2D
         elif self.geo.dim == 3:
@@ -97,7 +98,12 @@ class TwoPhase(ThermalModel):
             (p_, T_, S_o_) = split(self.u_)
             q, r, s = TestFunctions(W)
         
-
+        rho_o = oil_rho(p, T)
+        rho_w = water_rho(p, T)
+        mu_o = oil_mu(T)
+        mu_w = water_mu(T)
+        kr_o = rel_perm_o(S_o)
+        kr_w = rel_perm_w(S_o)
         
         # Define facet quantities
         n = FacetNormal(mesh)
@@ -129,29 +135,37 @@ class TwoPhase(ThermalModel):
             p_w = 1.0
             o_w = 1.0
 
+        if self.geo.gravity2D:
+            g = self.params.g
+            flow_o = jump(p)/Delta_h - g*avg(rho_o)*(abs(n[1]('+'))+abs(n[1]('-')))/2
+            flow_w = jump(p)/Delta_h - g*avg(rho_w)*(abs(n[1]('+'))+abs(n[1]('-')))/2
+        else:
+            flow_o = jump(p)/Delta_h
+            flow_w = jump(p)/Delta_h
+
         ## Solve a coupled problem 
         # conservation of mass equation WATER - "pressure equation"
-        a_accum_w =phi*(water_rho(p,T)*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
-        a_flow_w = K_facet*conditional(gt(jump(p), 0.0), rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS
+        a_accum_w =phi*(rho_w*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
+        a_flow_w = K_facet*conditional(gt(flow_w, 0.0), kr_w('+')*rho_w('+')/mu_w('+'), kr_w('-')*rho_w('-')/mu_w('-'))*jump(q)*flow_w*dS
         # conservation of mass equation OIL - "saturation equation"
-        a_accum_o = phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
-        a_flow_o = K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(s)*jump(p)/Delta_h*dS
+        a_accum_o = phi*(rho_o*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
+        a_flow_o = K_facet*conditional(gt(flow_o, 0.0), kr_o('+')*rho_o('+')/mu_o('+'), kr_o('-')*rho_o('-')/mu_o('-'))*jump(s)*flow_o*dS
         
         ## WEIGHTED SUM - pressure equation
         if self.pressure_eqn:
-            a_accum_w = c_v_w*a_accum_w + c_v_o*(phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*q*dx)
-            a_flow_w = c_v_w*a_flow_w + c_v_o*(K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS)
+            a_accum_w = c_v_w*a_accum_w + c_v_o*(phi*(rho_o*S_o - oil_rho(p_,T_)*S_o_)/self.dt*q*dx)
+            a_flow_w = c_v_w*a_flow_w + c_v_o*(K_facet*conditional(gt(flow_o, 0.0), kr_o('+')*rho_o('+')/mu_o('+'), kr_o('-')*rho_o('-')/mu_o('-'))*jump(q)*flow_o*dS)
         
         # conservation of energy equation
-        a_Eaccum = phi*c_v_w*(water_rho(p,T)*(1.0 - S_o)*T - water_rho(p_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(oil_rho(p,T)*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
-        a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), T('-')*rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*c_v_w*jump(r)*jump(p)/Delta_h*dS + K_facet*conditional(gt(jump(p), 0.0), T('+')*rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v_o*jump(r)*jump(p)/Delta_h*dS
+        a_Eaccum = phi*c_v_w*(rho_w*(1.0 - S_o)*T - water_rho(p_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(rho_o*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
+        a_advec = K_facet*conditional(gt(flow_w, 0.0), T('+')*kr_w('+')*rho_w('+')/mu_w('+'), T('-')*kr_w('-')*rho_w('-')/mu_w('-'))*c_v_w*jump(r)*flow_w*dS + K_facet*conditional(gt(flow_o, 0.0), T('+')*kr_o('+')*rho_o('+')/mu_o('+'), T('-')*kr_o('-')*rho_o('-')/mu_o('-'))*c_v_o*jump(r)*flow_o*dS
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*dS
 
         a = p_w*a_accum_w + p_w*a_flow_w + o_w*a_accum_o + o_w*a_flow_o + a_Eaccum + a_diff + a_advec
         self.F = a 
         
-        rhow_o = oil_rho(p, T)
-        rhow_w = water_rho(p, T)
+        rhow_o = rho_o
+        rhow_w =rho_w
         rhow = water_rho(p, T_inj)
 
         ## Source terms using global deltas
@@ -246,8 +260,12 @@ class TwoPhase(ThermalModel):
             (p_, T_, S_o_) = split(self.u_)
             q, r, s = TestFunctions(W)
         
-        
-
+        rho_o = oil_rho(p, T)
+        rho_w = water_rho(p, T)
+        mu_o = oil_mu(T)
+        mu_w = water_mu(T)
+        kr_o = rel_perm_o(S_o)
+        kr_w = rel_perm_w(S_o)
         
         # Define facet quantities
         n = FacetNormal(mesh)
@@ -270,8 +288,8 @@ class TwoPhase(ThermalModel):
         
         kT_facet = conditional(gt(avg(kT), 0.0), kT('+')*kT('-') / avg(kT), 0.0)        
         
-        z_flow_w = jump(p)/Delta_h - g*avg(water_rho(p,T))
-        z_flow_o = jump(p)/Delta_h - g*avg(oil_rho(p,T))
+        z_flow_w = jump(p)/Delta_h - g*avg(rho_w)
+        z_flow_o = jump(p)/Delta_h - g*avg(rho_o)
 
         # weights for pressure and oil equations. Only uses initial saturation
         if self.scaled_eqns:
@@ -286,32 +304,32 @@ class TwoPhase(ThermalModel):
 
         ## Solve a coupled problem 
         # conservation of mass equation WATER - "pressure equation"
-        a_accum_w = phi*(water_rho(p,T)*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
-        a_flow_w = K_facet*conditional(gt(jump(p), 0.0), rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS_v
-        a_flow_w_z = K_z_facet*conditional(gt(z_flow_w, 0.0), rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*jump(q)*z_flow_w*dS_h
+        a_accum_w = phi*(rho_w*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
+        a_flow_w = K_facet*conditional(gt(jump(p), 0.0), kr_w('+')*rho_w('+')/mu_w('+'), kr_w('-')*rho_w('-')/mu_w('-'))*jump(q)*jump(p)/Delta_h*dS_v
+        a_flow_w_z = K_z_facet*conditional(gt(z_flow_w, 0.0), kr_w('+')*rho_w('+')/mu_w('+'), kr_w('-')*rho_w('-')/mu_w('-'))*jump(q)*z_flow_w*dS_h
         # conservation of mass equation OIL - "saturation equation"
-        a_accum_o = phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
-        a_flow_o = K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(s)*jump(p)/Delta_h*dS_v
-        a_flow_o_z = K_z_facet*conditional(gt(z_flow_o, 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(s)*z_flow_o*dS_h
+        a_accum_o = phi*(rho_o*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
+        a_flow_o = K_facet*conditional(gt(jump(p), 0.0), kr_o('+')*rho_o('+')/mu_o('+'), kr_o('-')*rho_o('-')/mu_o('-'))*jump(s)*jump(p)/Delta_h*dS_v
+        a_flow_o_z = K_z_facet*conditional(gt(z_flow_o, 0.0), kr_o('+')*rho_o('+')/mu_o('+'), kr_o('-')*rho_o('-')/mu_o('-'))*jump(s)*z_flow_o*dS_h
         
         
         ## WEIGHTED SUM - pressure equation
         if self.pressure_eqn:
-            a_accum_w = c_v_w*a_accum_w + c_v_o*(phi*(oil_rho(p,T)*S_o - oil_rho(p_,T_)*S_o_)/self.dt*q*dx)
-            a_flow_w = c_v_w*a_flow_w + c_v_o*(K_facet*conditional(gt(jump(p), 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*jump(p)/Delta_h*dS_v)
-            a_flow_w_z = c_v_w*a_flow_w_z + c_v_o*K_z_facet*conditional(gt(z_flow_o, 0.0), rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*jump(q)*z_flow_o*dS_h
+            a_accum_w = c_v_w*a_accum_w + c_v_o*(phi*(rho_o*S_o - oil_rho(p_,T_)*S_o_)/self.dt*q*dx)
+            a_flow_w = c_v_w*a_flow_w + c_v_o*(K_facet*conditional(gt(jump(p), 0.0), kr_o('+')*rho_o('+')/mu_o('+'), kr_o('-')*rho_o('-')/mu_o('-'))*jump(q)*jump(p)/Delta_h*dS_v)
+            a_flow_w_z = c_v_w*a_flow_w_z + c_v_o*K_z_facet*conditional(gt(z_flow_o, 0.0), kr_o('+')*rho_o('+')/mu_o('+'), kr_o('-')*rho_o('-')/mu_o('-'))*jump(q)*z_flow_o*dS_h
         
         # conservation of energy equation
-        a_Eaccum = phi*c_v_w*(water_rho(p,T)*(1.0 - S_o)*T - water_rho(p_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(oil_rho(p,T)*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
-        a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), T('-')*rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*c_v_w*jump(r)*jump(p)/Delta_h*dS_v + K_facet*conditional(gt(jump(p), 0.0), T('+')*rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v_o*jump(r)*jump(p)/Delta_h*dS_v
-        a_advec_z = K_z_facet*conditional(gt(z_flow_w, 0.0), T('+')*rel_perm_w(S_o('+'))*water_rho(p('+'),T('+'))/water_mu(T('+')), T('-')*rel_perm_w(S_o('-'))*water_rho(p('-'),T('-'))/water_mu(T('-')))*c_v_w*jump(r)*z_flow_w*dS_h + K_z_facet*conditional(gt(z_flow_o, 0.0), T('+')*rel_perm_o(S_o('+'))*oil_rho(p('+'),T('+'))/oil_mu(T('+')), T('-')*rel_perm_o(S_o('-'))*oil_rho(p('-'),T('-'))/oil_mu(T('-')))*c_v_o*jump(r)*z_flow_o*dS_h
+        a_Eaccum = phi*c_v_w*(rho_w*(1.0 - S_o)*T - water_rho(p_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(rho_o*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
+        a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*kr_w('+')*rho_w('+')/mu_w('+'), T('-')*kr_w('-')*rho_w('-')/mu_w('-'))*c_v_w*jump(r)*jump(p)/Delta_h*dS_v + K_facet*conditional(gt(jump(p), 0.0), T('+')*kr_o('+')*rho_o('+')/mu_o('+'), T('-')*kr_o('-')*rho_o('-')/mu_o('-'))*c_v_o*jump(r)*jump(p)/Delta_h*dS_v
+        a_advec_z = K_z_facet*conditional(gt(z_flow_w, 0.0), T('+')*kr_w('+')*rho_w('+')/mu_w('+'), T('-')*kr_w('-')*rho_w('-')/mu_w('-'))*c_v_w*jump(r)*z_flow_w*dS_h + K_z_facet*conditional(gt(z_flow_o, 0.0), T('+')*kr_o('+')*rho_o('+')/mu_o('+'), T('-')*kr_o('-')*rho_o('-')/mu_o('-'))*c_v_o*jump(r)*z_flow_o*dS_h
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*(dS_v + dS_h)
 
         a = p_w*a_accum_w + p_w*a_flow_w + p_w*a_flow_w_z + o_w*a_accum_o + o_w*a_flow_o +o_w* a_flow_o_z + a_Eaccum + a_advec + a_advec_z + a_diff
         self.F = a 
 
-        rhow_o = oil_rho(p, T)
-        rhow_w = water_rho(p, T)
+        rhow_o = rho_o
+        rhow_w = rho_w
         rhow = water_rho(p, T_inj)
 
         ## Source terms using global deltas

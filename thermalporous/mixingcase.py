@@ -34,7 +34,10 @@ class MixingCase():
             ic.sub(1).assign(ic_T)
         elif self.mixing_case == "heavyonlight":
             if phases == "Single phase": raise SystemExit("Error: heavyonlight case not defined for Single Phase")
-            ic_S = interpolate(conditional(gt(x[2],self.geo.Length_z/2.), 0.0, 1.0), self.V)
+            if self.geo.dim == 2:
+                ic_S = interpolate(conditional(gt(x[1],self.geo.Length_y/2.), 0.0, 1.0), self.V)
+            elif self.geo.dim == 3:
+                ic_S = interpolate(conditional(gt(x[2],self.geo.Length_z/2.), 0.0, 1.0), self.V)
             ic.sub(0).assign(Constant(p_ref))
             ic.sub(1).assign(Constant(T_cold))
             ic.sub(2).assign(ic_S)

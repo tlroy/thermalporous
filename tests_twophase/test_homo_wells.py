@@ -30,16 +30,17 @@ maxdt = dt
 
 # GEO
 N = sys.argv[3]
-N = float(N)
+N = int(N)
 Nx = N
 Ny = N
-L = 50
+L = 50.
 
 geo = GeoModel(Nx, Ny, params, L, L)
 
 
 # CASE
 case = TestCase(params, geo, well_case = "test0", constant_rate = True)#, prod_points = prod_points, inj_points = inj_points)
+case = TestCase(params, geo, well_case = None, prod_points = [], inj_points = [], constant_rate = True)
 
 parameters = {
         "snes_type": "newtonls",

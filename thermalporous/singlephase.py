@@ -4,7 +4,7 @@ from thermalporous.preconditioners import ConvDiffSchurPC, CPRStage1PC
 
 from firedrake.utils import cached_property
 class SinglePhase(ThermalModel):
-    def __init__(self, geo, case, params, end = 1.0, maxdt = 0.005, save = False, n_save = 2, small_dt_start = True, checkpointing = {}, solver_parameters = None, filename = "results/results.txt", dt_init_fact = 2**(-10), vector = False):
+    def __init__(self, geo, case, params, end = 1.0, maxdt = 0.005, save = False, n_save = 2, small_dt_start = True, checkpointing = {}, solver_parameters = None, filename = "results/results.txt", dt_init_fact = 2**(-10), vector = False, gravity2D = False):
         self.name = "Single phase"
         self.geo = geo
         self.case = case
@@ -24,6 +24,7 @@ class SinglePhase(ThermalModel):
         self.solver_parameters = solver_parameters
         self.init_solver_parameters()
         self.scaled_eqns = False
+        self.geo.gravity2D = gravity2D
         if self.geo.dim == 2:
             self.init_variational_form = self.init_variational_form_2D
         elif self.geo.dim == 3:
@@ -96,7 +97,13 @@ class SinglePhase(ThermalModel):
         
         K_facet = (K_x_facet*(abs(n[0]('+'))+abs(n[0]('-')))/2 + K_y_facet*(abs(n[1]('+'))+abs(n[1]('-')))/2) #need form to be symmetric wrt to '+' and '-'
         
-        kT_facet = conditional(gt(avg(kT), 0.0), kT('+')*kT('-') / avg(kT), 0.0)        
+        kT_facet = conditional(gt(avg(kT), 0.0), kT('+')*kT('-') / avg(kT), 0.0)
+        
+        if self.geo.gravity2D:
+            g = self.params.g
+            flow = jump(p)/Delta_h - g*avg(rho_o)*(abs(n[1]('+'))+abs(n[1]('-')))/2
+        else:
+            flow = jump(p)/Delta_h
 
         # Weight for mass equation
         if self.scaled_eqns:
@@ -108,10 +115,10 @@ class SinglePhase(ThermalModel):
         ## Solve a coupled problem 
         # conservation of mass equation
         a_accum = phi*(rho_o - oil_rho(p_,T_))/self.dt*q*dx
-        a_flow = K_facet*conditional(gt(jump(p), 0.0), rho_o('+')/mu_o('+'), rho_o('-')/mu_o('-'))*jump(q)*jump(p)/Delta_h*dS
+        a_flow = K_facet*conditional(gt(flow, 0.0), rho_o('+')/mu_o('+'), rho_o('-')/mu_o('-'))*jump(q)*flow*dS
         # conservation of energy equation
         a_Eaccum = phi*c_v*(rho_o*T - oil_rho(p_,T_)*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
-        a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*rho_o('+')/mu_o('+'), T('-')*rho_o('-')/mu_o('-'))*c_v*jump(r)*jump(p)/Delta_h*dS
+        a_advec = K_facet*conditional(gt(flow, 0.0), T('+')*rho_o('+')/mu_o('+'), T('-')*rho_o('-')/mu_o('-'))*c_v*jump(r)*flow*dS
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*dS
 
         a = m_w*a_accum + m_w*a_flow + a_Eaccum + a_diff + a_advec

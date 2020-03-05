@@ -62,9 +62,16 @@ class ConvDiffSchurPC(PCBase):
 
         if geo.dim == 2:
             Delta_h = sqrt(jump(x_func)**2 + jump(y_func)**2)
+            
+            if geo.gravity2D:
+                g = params.g
+                flow = jump(p0)/Delta_h - g*avg(oil_rho(p0,T0))*(abs(n[1]('+'))+abs(n[1]('-')))/2
+            else:
+                flow = jump(p0)/Delta_h
+                
             # conservation of energy equation
             a_Eaccum = phi*c_v*(oil_rho(p0,T0)*T)/dt*r*dx + (1-phi)*rho_r*c_r*(T)/dt*r*dx
-            a_advec = K_facet*conditional(gt(jump(p0), 0.0), T('+')*oil_rho(p0('+'),T0('+'))/oil_mu(T0('+')), T('-')*oil_rho(p0('-'),T0('-'))/oil_mu(T0('-')))*c_v*jump(r)*jump(p0)/Delta_h*dS
+            a_advec = K_facet*conditional(gt(flow, 0.0), T('+')*oil_rho(p0('+'),T0('+'))/oil_mu(T0('+')), T('-')*oil_rho(p0('-'),T0('-'))/oil_mu(T0('-')))*c_v*jump(r)*flow*dS
             a_diff = kT_facet*jump(T)/Delta_h*jump(r)*dS
             a = a_Eaccum + a_diff + a_advec
 
@@ -217,9 +224,16 @@ class ConvDiffSchurTwoPhasesPC(PCBase):
 
         if geo.dim == 2:
             Delta_h = sqrt(jump(x_func)**2 + jump(y_func)**2)
+            if geo.gravity2D:
+                g = params.g
+                flow_o = jump(p0)/Delta_h - g*avg(oil_rho(p0,T0))*(abs(n[1]('+'))+abs(n[1]('-')))/2
+                flow_w = jump(p0)/Delta_h - g*avg(water_rho(p0,T0))*(abs(n[1]('+'))+abs(n[1]('-')))/2
+            else:
+                flow_o = jump(p0)/Delta_h
+                flow_w = jump(p0)/Delta_h
             # conservation of energy equation
             a_Eaccum = phi*c_v_o*S0*(oil_rho(p0,T0)*T)/dt*r*dx + phi*c_v_w*(1.0 - S0)*(water_rho(p0,T0)*T)/dt*r*dx + (1-phi)*rho_r*c_r*(T)/dt*r*dx 
-            a_advec = K_facet*conditional(gt(jump(p0), 0.0), T('+')*rel_perm_w(S0('+'))*water_rho(p0('+'),T0('+'))/water_mu(T0('+')), T('-')*rel_perm_w(S0('-'))*water_rho(p0('-'),T0('-'))/water_mu(T0('-')))*c_v_w*jump(r)*jump(p0)/Delta_h*dS + K_facet*conditional(gt(jump(p0), 0.0), T('+')*rel_perm_o(S0('+'))*oil_rho(p0('+'),T0('+'))/oil_mu(T0('+')), T('-')*rel_perm_o(S0('-'))*oil_rho(p0('-'),T0('-'))/oil_mu(T0('-')))*c_v_o*jump(r)*jump(p0)/Delta_h*dS
+            a_advec = K_facet*conditional(gt(flow_w, 0.0), T('+')*rel_perm_w(S0('+'))*water_rho(p0('+'),T0('+'))/water_mu(T0('+')), T('-')*rel_perm_w(S0('-'))*water_rho(p0('-'),T0('-'))/water_mu(T0('-')))*c_v_w*jump(r)*flow_w*dS + K_facet*conditional(gt(flow_o, 0.0), T('+')*rel_perm_o(S0('+'))*oil_rho(p0('+'),T0('+'))/oil_mu(T0('+')), T('-')*rel_perm_o(S0('-'))*oil_rho(p0('-'),T0('-'))/oil_mu(T0('-')))*c_v_o*jump(r)*flow_o*dS
             a_diff = kT_facet*jump(T)/Delta_h*jump(r)*dS
 
             a = a_Eaccum + a_diff + a_advec
