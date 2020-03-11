@@ -61,17 +61,17 @@ dofs_per_p = 5e4
 total_dofs = dofs_per_p*nproc
 
 import numpy as np
-N = np.ceil( (total_dofs/3.0)**(1./3.) )
+N = int(np.ceil( (total_dofs/3.0)**(1./3.) ))
 
 Nx = N
 Ny = N
 Nz = N
 
 
-L = 50
-Length = 50
-Length_y = 50
-Length_z = 50
+L = 50.
+Length = 50.
+Length_y = 50.
+Length_z = 50.
 
 
 geo = GeoModel(Nx, Ny, Nz, params, Length = Length, Length_y = Length_y, Length_z = Length_z)

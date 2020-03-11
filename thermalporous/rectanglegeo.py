@@ -42,26 +42,24 @@ class RectangleGeo():
             Nx = nx*2**nref
             self.Nx = Nx
         else:
-            nx = Nx/2**nref
+            nx = int(Nx/2**nref)
         if (Ny % 2**nref == 0) is False:
             print("WARNING: Ny is not divisible by nref. Rounding up")
             ny = int(Ny/2**nref) + 1
             Ny = ny*2**nref
             self.Ny = Ny
         else:
-            ny = Ny/2**nref
+            ny = int(Ny/2**nref)
 
         self.Dx = Length/Nx
         self.Dy = Length_y/Ny
-            
+        
         distribution_parameters={"partition": True, "overlap_type": (DistributedMeshOverlapType.VERTEX, 2)} # or FACET?
-        #from IPython import embed; embed()
         base = RectangleMesh(nx, ny, Length, Length_y, quadrilateral=True, distribution_parameters=distribution_parameters)
         mh = MeshHierarchy(base, nref)
         mesh = mh[-1]
         return mesh
         
-    
         
     def init_function_space(self):
         self.V = FunctionSpace(self.mesh, "DQ", 0)
