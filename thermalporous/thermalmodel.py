@@ -146,7 +146,7 @@ class ThermalModel:
             i += 1
             previous_fail = 0
             if self.comm.rank == 0:
-                print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". dt size: ", self.dt.values()[0]/24.0/3600.0)  
+                print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". dt size: ", self.dt.values()[0]/24.0/3600.0, flush = True)  
                 
             
                     
@@ -168,7 +168,7 @@ class ThermalModel:
                         print(i_plot, "th plot")
                     self.dt.assign(self.dt.values()[0]*0.5)
                     if self.comm.rank == 0:
-                        print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
+                        print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0, flush = True)  
                     u.assign(u_)
                     previous_fail = 1
                     continue
@@ -183,7 +183,7 @@ class ThermalModel:
                     (p,T,S_o) = split(u)
                 mass_o = assemble(self.geo.phi*S_o*self.params.oil_rho(p,T)*dx)
                 if self.comm.rank == 0:
-                    print("Total oil mass in reservoir: ", mass_o)
+                    print("Total oil mass in reservoir: ", mass_o, flush = True)
                 Sat = u.dat.data[self.i_S_o]
                 epsilon = 1e-10
                 local_chop = (np.amax(Sat)- 1.0 > epsilon or np.amin(Sat) < -epsilon,)
@@ -194,10 +194,10 @@ class ThermalModel:
                 
                 while global_chop[0]: #False: #
                     if self.comm.rank == 0:
-                        print("------Negative saturation! Chopping time-step---------")
+                        print("------Negative saturation! Chopping time-step---------", flush = True)
                     self.dt.assign(self.dt.values()[0]*0.5)
                     if self.comm.rank == 0:
-                        print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
+                        print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0, flush = True)  
                     u.assign(u_)
                     try:
                         self.solver.solve()
@@ -205,7 +205,7 @@ class ThermalModel:
                         print(np.max(u.dat.data[self.i_S_o]))
                         self.dt.assign(self.dt.values()[0]*0.5)
                         if self.comm.rank == 0:
-                            print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0)  
+                            print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0, flush = True)  
                         u.assign(u_)
                         previous_fail = 1
                         continue
