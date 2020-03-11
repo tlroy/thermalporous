@@ -28,6 +28,10 @@ class PhysicalParameters():
     S_o = 1.0 # default initial oil saturation
     U = 5.44409e6 # heat coefficient for heaters J/(s*K)
     rate = 1.8e-3 # max inj/prod rate#-0.00184013 # SPE4 #-1e-7 #Flow rate m^3/s Peaceman: 3.2774e-7
+    p_ct = 1e5*1e-6 # threshold pressure 1e5 Pa 
+    lmbda = 2.0 # Brooks-Corey constant
+    Sr_o = 0.1 # residual oil saturation
+    Sr_w = 0.2 # residual water saturation
     
     def oil_rho(self, p, T):
         # Formula for density, using coefficients representative of reservoir simulation
@@ -91,5 +95,57 @@ class PhysicalParameters():
     def rel_perm_w(self, S_o):
         # relative permeability of water
         return 1.0 - S_o
-
-
+    
+    def effective_saturation_o(self, S_o):
+        Sr_o = self.Sr_o
+        Sr_w = self.Sr_w
+        return ((S_o - Sr_o)/(1. - Sr_o - Sr_w))
+        
+    def effective_saturation_w(self, S_o):
+        Sr_o = self.Sr_o
+        Sr_w = self.Sr_w
+        S_w = 1. - S_o
+        return ((S_w - Sr_w)/(1. - Sr_o - Sr_w))
+        
+    #def capillary_pressure_o(self, S_o):
+        ## capillary_pressure permeability of oil using Brooks-Corey
+        #Sr_o = self.Sr_o
+        #Sr_w = self.Sr_w
+        #lmbda = self.lmbda
+        #return p_ct*((1. - Sr_o)/(S_o - Sr_o))**(1/lmbda)
+    
+    #def capillary_pressure_w(self, S_o):
+        ## capillary_pressure permeability of oil using Brooks-Corey
+        #Sr_w = self.Sr_w
+        #S_w = 1. - S_o
+        #lmbda = self.lmbda
+        #return p_ct*((1. - Sr_w)/(S_w - Sr_w))**(1/lmbda)
+        
+    def rel_perm_o_B_C(self, S_o):
+        # relative permeability of oil using Brooks-Corey
+        Sr_o = self.Sr_o
+        Se_o = self.effective_saturation_o(S_o)
+        lmbda = self.lmbda
+        return conditional(gt(S_o, Sr_o), Se_o**((2+3*lmbda)/lmbda), 0.0)
+    
+    def rel_perm_w_B_C(self, S_o):
+        # relative permeability of oil using Brooks-Corey
+        Sr_w = self.Sr_w
+        S_w = 1. - S_o
+        lmbda = self.lmbda
+        Se_w = self.effective_saturation_w(S_o)
+        return conditional(gt(S_w, Sr_w), Se_w**((2+3*lmbda)/lmbda), 0.0)
+    
+    def capillary_pressure_B_C(self, S_o):
+        # Brooks-Corey
+        Se_w = self.effective_saturation_w(S_o)
+        lmbda = self.lmbda
+        p_ct = self.p_ct
+        return p_ct*Se_w**(-1/lmbda)
+    
+    def capillary_pressure_linear(self, S_o):
+        # Linear model
+        Se_w = self.effective_saturation_w(S_o)
+        #lmbda = self.lmbda
+        p_ct = self.p_ct
+        return p_ct*(1-Se_w)

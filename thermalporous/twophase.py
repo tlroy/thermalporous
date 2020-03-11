@@ -79,8 +79,6 @@ class TwoPhase(ThermalModel):
         oil_rho = self.params.oil_rho
         water_mu = self.params.water_mu
         water_rho = self.params.water_rho
-        rel_perm_o = self.params.rel_perm_o
-        rel_perm_w = self.params.rel_perm_w
         
         # Initiate functions
         self.u = Function(W)
@@ -98,8 +96,20 @@ class TwoPhase(ThermalModel):
             (p_, T_, S_o_) = split(self.u_)
             q, r, s = TestFunctions(W)
         
+        if False:
+        # Determine capillary pressure. We set p_o = p
+            p_w = p - self.params.capillary_pressure_linear(S_o)
+            p_w_ = p_ - self.params.capillary_pressure_linear(S_o_)
+            rel_perm_o = self.params.rel_perm_o_B_C
+            rel_perm_w = self.params.rel_perm_w_B_C
+        else:
+            p_w = p
+            p_w_ = p_
+            rel_perm_o = self.params.rel_perm_o
+            rel_perm_w = self.params.rel_perm_w
+        
         rho_o = oil_rho(p, T)
-        rho_w = water_rho(p, T)
+        rho_w = water_rho(p_w, T)
         mu_o = oil_mu(T)
         mu_w = water_mu(T)
         kr_o = rel_perm_o(S_o)
@@ -127,25 +137,25 @@ class TwoPhase(ThermalModel):
         # weights for pressure and oil equations. Only uses initial saturation
         if self.scaled_eqns:
             if self.pressure_eqn:
-                p_w = self.params.T_prod
+                p_weight = self.params.T_prod
             else:
-                p_w = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
-            o_w = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
+                p_weight = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
+            o_weight = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
         else:
-            p_w = 1.0
-            o_w = 1.0
+            p_weight = 1.0
+            o_weight = 1.0
 
         if self.geo.gravity2D:
             g = self.params.g
             flow_o = jump(p)/Delta_h - g*avg(rho_o)*(abs(n[1]('+'))+abs(n[1]('-')))/2
-            flow_w = jump(p)/Delta_h - g*avg(rho_w)*(abs(n[1]('+'))+abs(n[1]('-')))/2
+            flow_w = jump(p_w)/Delta_h - g*avg(rho_w)*(abs(n[1]('+'))+abs(n[1]('-')))/2
         else:
             flow_o = jump(p)/Delta_h
-            flow_w = jump(p)/Delta_h
+            flow_w = jump(p_w)/Delta_h
 
         ## Solve a coupled problem 
         # conservation of mass equation WATER - "pressure equation"
-        a_accum_w =phi*(rho_w*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
+        a_accum_w = phi*(rho_w*(1.0 - S_o) - water_rho(p_w_,T_)*(1.0 - S_o_))/self.dt*q*dx
         a_flow_w = K_facet*conditional(gt(flow_w, 0.0), kr_w('+')*rho_w('+')/mu_w('+'), kr_w('-')*rho_w('-')/mu_w('-'))*jump(q)*flow_w*dS
         # conservation of mass equation OIL - "saturation equation"
         a_accum_o = phi*(rho_o*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
@@ -157,16 +167,16 @@ class TwoPhase(ThermalModel):
             a_flow_w = c_v_w*a_flow_w + c_v_o*(K_facet*conditional(gt(flow_o, 0.0), kr_o('+')*rho_o('+')/mu_o('+'), kr_o('-')*rho_o('-')/mu_o('-'))*jump(q)*flow_o*dS)
         
         # conservation of energy equation
-        a_Eaccum = phi*c_v_w*(rho_w*(1.0 - S_o)*T - water_rho(p_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(rho_o*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
+        a_Eaccum = phi*c_v_w*(rho_w*(1.0 - S_o)*T - water_rho(p_w_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(rho_o*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
         a_advec = K_facet*conditional(gt(flow_w, 0.0), T('+')*kr_w('+')*rho_w('+')/mu_w('+'), T('-')*kr_w('-')*rho_w('-')/mu_w('-'))*c_v_w*jump(r)*flow_w*dS + K_facet*conditional(gt(flow_o, 0.0), T('+')*kr_o('+')*rho_o('+')/mu_o('+'), T('-')*kr_o('-')*rho_o('-')/mu_o('-'))*c_v_o*jump(r)*flow_o*dS
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*dS
 
-        a = p_w*a_accum_w + p_w*a_flow_w + o_w*a_accum_o + o_w*a_flow_o + a_Eaccum + a_diff + a_advec
+        a = p_weight*a_accum_w + p_weight*a_flow_w + o_weight*a_accum_o + o_weight*a_flow_o + a_Eaccum + a_diff + a_advec
         self.F = a 
         
         rhow_o = rho_o
         rhow_w =rho_w
-        rhow = water_rho(p, T_inj)
+        rhow = water_rho(p_w, T_inj)
 
         ## Source terms using global deltas
         if self.case.name.startswith("Sources"):
@@ -178,18 +188,18 @@ class TwoPhase(ThermalModel):
             tmp_o = self.case.deltas_prod*oil_rate
             tmp_w = self.case.deltas_prod*water_rate
             if self.pressure_eqn:
-                self.F -= p_w*c_v_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx + p_w*c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
+                self.F -= p_weight*c_v_w*rhow_w*tmp_w*q*dx + o_weight*rhow_o*tmp_o*s*dx + p_weight*c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
             else:
-                self.F -= p_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx
+                self.F -= p_weight*rhow_w*tmp_w*q*dx + o_weight*rhow_o*tmp_o*s*dx
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
             # injection wells
             inj_rate = self.case.flow_rate_inj(p, T, phase = 'water')
             self.inj_rate = inj_rate
             tmp = self.case.deltas_inj*inj_rate
             if self.pressure_eqn:
-                self.F -= p_w*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+                self.F -= p_weight*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             else:
-                self.F -= p_w*rhow*tmp*q*dx 
+                self.F -= p_weight*rhow*tmp*q*dx 
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
             # heaters
             self.F -= self.case.deltas_heaters*self.params.U*(T_inj-T)*r*dx
@@ -203,18 +213,18 @@ class TwoPhase(ThermalModel):
             tmp_o =  well['delta']*oil_rate
             tmp_w = well['delta']*water_rate
             if self.pressure_eqn:
-                self.F -= p_w*c_v_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx + p_w*c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
+                self.F -= p_weight*c_v_w*rhow_w*tmp_w*q*dx + o_weight*rhow_o*tmp_o*s*dx + p_weight*c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
             else:
-                self.F -= p_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx
+                self.F -= p_weight*rhow_w*tmp_w*q*dx + o_weight*rhow_o*tmp_o*s*dx
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
         for well in self.case.inj_wells:
             rate = self.case.flow_rate(p, T, well, phase = 'water') # only inject water
             well.update({'rate': rate})
             tmp = well['delta']*rate
             if self.pressure_eqn:
-                self.F -= p_w*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+                self.F -= p_weight*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             else:
-                self.F -= p_w*rhow*tmp*q*dx
+                self.F -= p_weight*rhow*tmp*q*dx
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
         for heater in self.case.heaters:
             tmp = heater['delta']
@@ -259,9 +269,21 @@ class TwoPhase(ThermalModel):
             (p, T, S_o) = split(self.u)
             (p_, T_, S_o_) = split(self.u_)
             q, r, s = TestFunctions(W)
+            
+        if False:
+        # Determine capillary pressure. We set p_o = p
+            p_w = p - self.params.capillary_pressure_linear(S_o)
+            p_w_ = p_ - self.params.capillary_pressure_linear(S_o_)
+            rel_perm_o = self.params.rel_perm_o_B_C
+            rel_perm_w = self.params.rel_perm_w_B_C
+        else:
+            p_w = p
+            p_w_ = p_
+            rel_perm_o = self.params.rel_perm_o
+            rel_perm_w = self.params.rel_perm_w
         
         rho_o = oil_rho(p, T)
-        rho_w = water_rho(p, T)
+        rho_w = water_rho(p_w, T)
         mu_o = oil_mu(T)
         mu_w = water_mu(T)
         kr_o = rel_perm_o(S_o)
@@ -288,24 +310,24 @@ class TwoPhase(ThermalModel):
         
         kT_facet = conditional(gt(avg(kT), 0.0), kT('+')*kT('-') / avg(kT), 0.0)        
         
-        z_flow_w = jump(p)/Delta_h - g*avg(rho_w)
+        z_flow_w = jump(p_w)/Delta_h - g*avg(rho_w)
         z_flow_o = jump(p)/Delta_h - g*avg(rho_o)
 
         # weights for pressure and oil equations. Only uses initial saturation
         if self.scaled_eqns:
             if self.pressure_eqn:
-                p_w = self.params.T_prod
+                p_weight = self.params.T_prod
             else:
-                p_w = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
-            o_w = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
+                p_weight = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
+            o_weight = self.params.T_prod*(c_v_w*(1-self.params.S_o) + c_v_o*self.params.S_o)
         else:
-            p_w = 1.0
-            o_w = 1.0
+            p_weight = 1.0
+            o_weight = 1.0
 
         ## Solve a coupled problem 
         # conservation of mass equation WATER - "pressure equation"
-        a_accum_w = phi*(rho_w*(1.0 - S_o) - water_rho(p_,T_)*(1.0 - S_o_))/self.dt*q*dx
-        a_flow_w = K_facet*conditional(gt(jump(p), 0.0), kr_w('+')*rho_w('+')/mu_w('+'), kr_w('-')*rho_w('-')/mu_w('-'))*jump(q)*jump(p)/Delta_h*dS_v
+        a_accum_w = phi*(rho_w*(1.0 - S_o) - water_rho(p_w_,T_)*(1.0 - S_o_))/self.dt*q*dx
+        a_flow_w = K_facet*conditional(gt(jump(p_w), 0.0), kr_w('+')*rho_w('+')/mu_w('+'), kr_w('-')*rho_w('-')/mu_w('-'))*jump(q)*jump(p)/Delta_h*dS_v
         a_flow_w_z = K_z_facet*conditional(gt(z_flow_w, 0.0), kr_w('+')*rho_w('+')/mu_w('+'), kr_w('-')*rho_w('-')/mu_w('-'))*jump(q)*z_flow_w*dS_h
         # conservation of mass equation OIL - "saturation equation"
         a_accum_o = phi*(rho_o*S_o - oil_rho(p_,T_)*S_o_)/self.dt*s*dx
@@ -320,17 +342,17 @@ class TwoPhase(ThermalModel):
             a_flow_w_z = c_v_w*a_flow_w_z + c_v_o*K_z_facet*conditional(gt(z_flow_o, 0.0), kr_o('+')*rho_o('+')/mu_o('+'), kr_o('-')*rho_o('-')/mu_o('-'))*jump(q)*z_flow_o*dS_h
         
         # conservation of energy equation
-        a_Eaccum = phi*c_v_w*(rho_w*(1.0 - S_o)*T - water_rho(p_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(rho_o*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
-        a_advec = K_facet*conditional(gt(jump(p), 0.0), T('+')*kr_w('+')*rho_w('+')/mu_w('+'), T('-')*kr_w('-')*rho_w('-')/mu_w('-'))*c_v_w*jump(r)*jump(p)/Delta_h*dS_v + K_facet*conditional(gt(jump(p), 0.0), T('+')*kr_o('+')*rho_o('+')/mu_o('+'), T('-')*kr_o('-')*rho_o('-')/mu_o('-'))*c_v_o*jump(r)*jump(p)/Delta_h*dS_v
+        a_Eaccum = phi*c_v_w*(rho_w*(1.0 - S_o)*T - water_rho(p_w_,T_)*(1.0 - S_o_)*T_)/self.dt*r*dx + phi*c_v_o*(rho_o*S_o*T - oil_rho(p_,T_)*S_o_*T_)/self.dt*r*dx + (1-phi)*rho_r*c_r*(T - T_)/self.dt*r*dx 
+        a_advec = K_facet*conditional(gt(jump(p_w), 0.0), T('+')*kr_w('+')*rho_w('+')/mu_w('+'), T('-')*kr_w('-')*rho_w('-')/mu_w('-'))*c_v_w*jump(r)*jump(p)/Delta_h*dS_v + K_facet*conditional(gt(jump(p), 0.0), T('+')*kr_o('+')*rho_o('+')/mu_o('+'), T('-')*kr_o('-')*rho_o('-')/mu_o('-'))*c_v_o*jump(r)*jump(p)/Delta_h*dS_v
         a_advec_z = K_z_facet*conditional(gt(z_flow_w, 0.0), T('+')*kr_w('+')*rho_w('+')/mu_w('+'), T('-')*kr_w('-')*rho_w('-')/mu_w('-'))*c_v_w*jump(r)*z_flow_w*dS_h + K_z_facet*conditional(gt(z_flow_o, 0.0), T('+')*kr_o('+')*rho_o('+')/mu_o('+'), T('-')*kr_o('-')*rho_o('-')/mu_o('-'))*c_v_o*jump(r)*z_flow_o*dS_h
         a_diff = kT_facet*jump(T)/Delta_h*jump(r)*(dS_v + dS_h)
 
-        a = p_w*a_accum_w + p_w*a_flow_w + p_w*a_flow_w_z + o_w*a_accum_o + o_w*a_flow_o +o_w* a_flow_o_z + a_Eaccum + a_advec + a_advec_z + a_diff
+        a = p_weight*a_accum_w + p_weight*a_flow_w + p_weight*a_flow_w_z + o_weight*a_accum_o + o_weight*a_flow_o +o_weight* a_flow_o_z + a_Eaccum + a_advec + a_advec_z + a_diff
         self.F = a 
 
         rhow_o = rho_o
         rhow_w = rho_w
-        rhow = water_rho(p, T_inj)
+        rhow = water_rho(p_w, T_inj)
 
         ## Source terms using global deltas
         if self.case.name.startswith("Sources"):
@@ -342,18 +364,18 @@ class TwoPhase(ThermalModel):
             tmp_o = self.case.deltas_prod*oil_rate
             tmp_w = self.case.deltas_prod*water_rate
             if self.pressure_eqn:
-                self.F -= p_w*c_v_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx + p_w*c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
+                self.F -= p_weight*c_v_w*rhow_w*tmp_w*q*dx + o_weight*rhow_o*tmp_o*s*dx + p_weight*c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
             else:
-                self.F -= p_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx
+                self.F -= p_weight*rhow_w*tmp_w*q*dx + o_weight*rhow_o*tmp_o*s*dx
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
             # injection wells
             inj_rate = self.case.flow_rate_inj(p, T, phase = 'water')
             self.inj_rate = inj_rate
             tmp = self.case.deltas_inj*inj_rate
             if self.pressure_eqn:
-                self.F -= p_w*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+                self.F -= p_weight*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             else:
-                self.F -= p_w*rhow*tmp*q*dx 
+                self.F -= p_weight*rhow*tmp*q*dx 
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
             # heaters
             self.F -= self.case.deltas_heaters*self.params.U*(T_inj-T)*r*dx
@@ -367,18 +389,18 @@ class TwoPhase(ThermalModel):
             tmp_o =  well['delta']*oil_rate
             tmp_w = well['delta']*water_rate
             if self.pressure_eqn:
-                self.F -= p_w*c_v_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx + p_w*c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
+                self.F -= p_weight*c_v_w*rhow_w*tmp_w*q*dx + o_weight*rhow_o*tmp_o*s*dx + p_weight*c_v_o*rhow_o*tmp_o*q*dx # WEIGHTED SUM
             else:
-                self.F -= p_w*rhow_w*tmp_w*q*dx + o_w*rhow_o*tmp_o*s*dx
+                self.F -= p_weight*rhow_w*tmp_w*q*dx + o_weight*rhow_o*tmp_o*s*dx
             self.F -= rhow_w*tmp_w*c_v_w*T*r*dx + rhow_o*tmp_o*c_v_o*T*r*dx
         for well in self.case.inj_wells:
             rate = self.case.flow_rate(p, T, well, phase = 'water') # only inject water
             well.update({'rate': rate})
             tmp = well['delta']*rate
             if self.pressure_eqn:
-                self.F -= p_w*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
+                self.F -= p_weight*c_v_w*rhow*tmp*q*dx # WEIGHTED SUM
             else:
-                self.F -= p_w*rhow*tmp*q*dx
+                self.F -= p_weight*rhow*tmp*q*dx
             self.F -= rhow*tmp*c_v_w*T_inj*r*dx
         for heater in self.case.heaters:
             tmp = heater['delta']
@@ -480,6 +502,69 @@ class TwoPhase(ThermalModel):
                "npc_fas_coarse_assembled_mat_type": "aij",
                "npc_fas_coarse_assembled_pc_type": "lu",
                "npc_fas_coarse_assembled_pc_factor_mat_solver_type": "mumps",
+                }
+        
+        newtonaijfaspardecomp  = {
+                "mat_type": "aij",
+                "snes_type": "newtonls",
+                "snes_monitor": None,
+                "snes_linesearch_type": "l2",
+                #"snes_linesearch_monitor": None,
+                "snes_linesearch_maxstep": 1,
+                "snes_view": None,
+                "ksp_type": "preonly",
+                #"ksp_pc_side": "right",
+                "pc_type": "lu",
+                #"pc_mg_type" : "full",
+                "ksp_monitor": None,
+                "snes_max_it": 100,
+                "snes_npc_side": "right",
+                "snes_atol": snes_atol,
+                "snes_rtol": snes_rtol,
+                "snes_converged_reason": None,
+                "npc_snes_type": "fas",
+                "npc_snes_fas_cycles": 1,
+                "npc_snes_fas_type": "kaskade",
+                "npc_snes_fas_galerkin": False,
+                "npc_snes_fas_full_downsweep": False,
+                "npc_snes_monitor": None,
+                "npc_snes_max_it": 1,
+                "npc_fas_levels_snes_type": "python",
+                "npc_fas_levels_snes_python_type": "firedrake.PatchSNES",
+                "npc_fas_levels_snes_max_it": 1,
+                "npc_fas_levels_snes_convergence_test": "skip",
+                "npc_fas_levels_snes_converged_reason": None,
+                "npc_fas_levels_snes_monitor": None,
+                "npc_fas_levels_snes_linesearch_type": "basic",
+                "npc_fas_levels_snes_linesearch_damping": 1.0,
+                "npc_fas_levels_patch_snes_patch_construct_type": "pardecomp",
+                "npc_fas_levels_patch_snes_patch_pardecomp_overlap": 1,
+                "npc_fas_levels_patch_snes_patch_partition_of_unity": True,
+                "npc_fas_levels_patch_snes_patch_sub_mat_type": "seqaij",
+                "npc_fas_levels_patch_snes_patch_local_type": "additive",
+                "npc_fas_levels_patch_snes_patch_symmetrise_sweep": False,
+                "npc_fas_levels_patch_sub_snes_type": "newtonls",
+                "npc_fas_levels_patch_sub_snes_monitor": None,
+                "npc_fas_levels_patch_sub_snes_atol": 1.0e-10,
+                "npc_fas_levels_patch_sub_snes_rtol": 1.0e-10,
+                "npc_fas_levels_patch_sub_snes_stol": 0.0,
+                "npc_fas_levels_patch_sub_snes_converged_reason": None,
+                "npc_fas_levels_patch_sub_snes_linesearch_type": "basic",
+                "npc_fas_levels_patch_sub_ksp_type": "preonly",
+                "npc_fas_levels_patch_sub_pc_type": "lu",
+                "npc_fas_levels_patch_sub_pc_factor_mat_solver_type": "mumps",
+                "npc_fas_coarse_snes_type": "newtonls",
+                "npc_fas_coarse_snes_monitor": None,
+                "npc_fas_coarse_snes_converged_reason": None,
+                "npc_fas_coarse_snes_max_it": 100,
+                "npc_fas_coarse_snes_atol": 1.0e-14,
+                "npc_fas_coarse_snes_rtol": 1.0e-14,
+                "npc_fas_coarse_snes_linesearch_type": "l2",
+                "npc_fas_coarse_ksp_type": "preonly",
+                "npc_fas_coarse_ksp_converged_reason": None,
+                "npc_fas_coarse_ksp_max_it": 1,
+                "npc_fas_coarse_pc_type": "lu",
+                "npc_fas_coarse_pc_factor_mat_solver_type": "mumps",
                 }
 
         pc_cptr = {"pc_type": "composite",
@@ -761,6 +846,8 @@ class TwoPhase(ThermalModel):
                 parameters = faspardecomp
             elif self.solver_parameters == "ngmresfaspardecomp":
                 parameters = ngmresfaspardecomp
+            elif self.solver_parameters == "newtonaijfaspardecomp":
+                parameters = newtonaijfaspardecomp
 
             self.solver_parameters = parameters
             
