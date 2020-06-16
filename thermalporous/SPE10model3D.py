@@ -18,7 +18,7 @@ class SPE10Model3D(BoxGeo):
         dirname = os.path.dirname(__file__)
 
         Vvec = VectorFunctionSpace(self.mesh, "DQ", 0)
-        coords = project(self.mesh.coordinates, Vvec).dat.data  
+        coords = project(self.mesh.coordinates, Vvec, use_slate_for_inverse=False).dat.data  
         
         # Creat DG function for porosity field
         self.phi = Function(self.V, name = 'porosity')

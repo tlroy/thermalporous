@@ -77,6 +77,7 @@ class BoxGeo():
         meshbase = RectangleMesh(nx, ny, Length, Length_y, quadrilateral=True) #, distribution_parameters=distribution_parameters)
         base = MeshHierarchy(meshbase, nref)
         mh = ExtrudedMeshHierarchy(base, height = Length_z, base_layer = nz)
+        self.mh = mh
         mesh = mh[-1]
         #from IPython import embed; embed()
         return mesh
