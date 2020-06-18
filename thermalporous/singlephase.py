@@ -52,8 +52,11 @@ class SinglePhase(ThermalModel):
     def init_IC_uniform(self):
         p_ref = self.params.p_ref
         T_prod = self.params.T_prod
-        return Constant((p_ref, T_prod))
-    
+        ic = Function(self.W)
+        ic.sub(0).assign(Constant(p_ref))
+        ic.sub(1).assign(Constant(T_prod))
+        return ic
+
     def init_variational_form_2D(self):
         W = self.W
         V = self.V

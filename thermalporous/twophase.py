@@ -58,8 +58,12 @@ class TwoPhase(ThermalModel):
         p_ref = self.params.p_ref
         T_prod = self.params.T_prod
         S_o = self.params.S_o
-        return Constant((p_ref, T_prod, S_o))
-    
+        ic = Function(self.W)
+        ic.sub(0).assign(Constant(p_ref))
+        ic.sub(1).assign(Constant(T_prod))
+        ic.sub(2).assign(Constant(S_o))
+        return ic
+
     def init_variational_form_2D(self):
         W = self.W
         V = self.V
