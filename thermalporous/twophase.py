@@ -5,7 +5,7 @@ from thermalporous.thermalmodel import ThermalModel
 
 from firedrake.utils import cached_property
 class TwoPhase(ThermalModel):
-    def __init__(self, geo, case, params, end = 1.0, maxdt = 0.005, save = False, n_save = 2, small_dt_start = True, checkpointing = {}, solver_parameters = None, filename = "results/results.txt", dt_init_fact = 2**(-10), vector = False, gravity2D = False):
+    def __init__(self, geo, case, params, end = 1.0, maxdt = 0.005, save = False, n_save = 2, small_dt_start = True, checkpointing = {}, solver_parameters = None, filename = "results/results.txt", dt_init_fact = 2**(-10), vector = False, gravity2D = False, verbosity = True):
         self.name = "Two-phase"
         self.geo = geo
         self.case = case
@@ -52,7 +52,7 @@ class TwoPhase(ThermalModel):
             self.bcs = []
         
         
-        ThermalModel.__init__(self, end = end, maxdt = maxdt, save = save, n_save = n_save, small_dt_start = small_dt_start, checkpointing = checkpointing, filename = filename, dt_init_fact = dt_init_fact)
+        ThermalModel.__init__(self, end = end, maxdt = maxdt, save = save, n_save = n_save, small_dt_start = small_dt_start, checkpointing = checkpointing, filename = filename, dt_init_fact = dt_init_fact, verbosity = verbosity)
         
     def init_IC_uniform(self):
         p_ref = self.params.p_ref

@@ -15,6 +15,7 @@ class WellCase():
         self.mesh = geo.mesh
         self.geo = geo
         self.params = params
+        self.wellfunc = 'circle'
         if constant_rate == True:
             self.flow_rate = self.flow_rate_constant
             self.flow_rate_twophase = self.flow_rate_twophase_constant
@@ -62,7 +63,7 @@ class WellCase():
                 prod_points = [[Lx/8, Ly/2, Lz*0.2], [Lx/4, Ly/2, Lz*0.2], [3*Lx/8, Ly/2, Lz*0.2], [Lx/2, Ly/2, Lz*0.2], [5*Lx/8, Ly/2, Lz*0.2], [3*Lx/4, Ly/2, Lz*0.2], [7*Lx/8, Ly/2, Lz*0.2]] + [[Lx/8, Ly/4, Lz*0.2], [Lx/4, Ly/4, Lz*0.2], [3*Lx/8, Ly/4, Lz*0.2], [Lx/2, Ly/4, Lz*0.2], [5*Lx/8, Ly/4, Lz*0.2], [3*Lx/4, Ly/4, Lz*0.2], [7*Lx/8, Ly/4, Lz*0.2]] + [[Lx/8, 3*Ly/4, Lz*0.2], [Lx/4, 3*Ly/4, Lz*0.2], [3*Lx/8, 3*Ly/4, Lz*0.2], [Lx/2, 3*Ly/4, Lz*0.2], [5*Lx/8, 3*Ly/4, Lz*0.2], [3*Lx/4, 3*Ly/4, Lz*0.2], [7*Lx/8, Ly/4, Lz*0.2]]
                 inj_points = [[Lx/8, Ly/2, Lz*0.8], [Lx/4, Ly/2, Lz*0.8], [3*Lx/8, Ly/2, Lz*0.8], [Lx/2, Ly/2, Lz*0.8], [5*Lx/8, Ly/2, Lz*0.8], [3*Lx/4, Ly/2, Lz*0.8], [7*Lx/8, Ly/2, Lz*0.8]] + [[Lx/8, Ly/4, Lz*0.8], [Lx/4, Ly/4, Lz*0.8], [3*Lx/8, Ly/4, Lz*0.8], [Lx/2, Ly/4, Lz*0.8], [5*Lx/8, Ly/4, Lz*0.8], [3*Lx/4, Ly/4, Lz*0.8], [7*Lx/8, Ly/4, Lz*0.8]] + [[Lx/8, 3*Ly/4, Lz*0.8], [Lx/4, 3*Ly/4, Lz*0.8], [3*Lx/8, 3*Ly/4, Lz*0.8], [Lx/2, 3*Ly/4, Lz*0.8], [5*Lx/8, 3*Ly/4, Lz*0.8], [3*Lx/4, 3*Ly/4, Lz*0.8], [7*Lx/8, Ly/4, Lz*0.8]]
         
-        self.init_wells(prod_points, inj_points, 'circle')
+        self.init_wells(prod_points, inj_points, self.wellfunc)
         
     def init_wells(self, prod_points, inj_points, wellfunc):
         self.prod_wells = []
@@ -86,6 +87,11 @@ class WellCase():
                 delta = self.well_circle(w)
             elif self.geo.dim == 3:
                 delta = self.well_circle3D(w)
+        elif wellfunc == 'square':
+            if self.geo.dim == 2:
+                delta = self.well_square(w)
+            elif self.geo.dim == 3:
+                delta = self.well_circle3D(w)
         
         
         if welltype == 'prod':
@@ -105,9 +111,25 @@ class WellCase():
         xw = w[0]
         yw = w[1]
         x, y = SpatialCoordinate(self.mesh)
-        radius = 0.1 #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
+        radius = self.params.well_radius #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
         delta = Function(self.V)
         delta.assign(interpolate(conditional(pow(x-xw,2)+pow(y-yw,2)<pow(radius,2), exp(-(1.0/(-pow(x-xw,2)-pow(y-yw,2)+pow(radius,2)))), 0.0), self.V))
+        normalise = assemble(delta*dx)
+        if normalise == 0:  
+            #print("Using delta")
+            delta = self.well_delta(w)
+        else:
+            delta.assign(delta/normalise)
+        return delta
+
+    def well_square(self, w):
+        xw = w[0]
+        yw = w[1]
+        x, y = SpatialCoordinate(self.mesh)
+        radius = self.params.well_radius #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
+        delta = Function(self.V)
+        max_xy = conditional(gt(abs(x-xw), abs(y-yw)), abs(x-xw), abs(y-yw))
+        delta.assign(interpolate(conditional(max_xy<radius, exp(-(1.0/(-max_xy+radius))), 0.0), self.V))
         normalise = assemble(delta*dx)
         if normalise == 0:  
             #print("Using delta")
@@ -121,7 +143,7 @@ class WellCase():
         yw = w[1]
         zw = w[2]
         x, y, z = SpatialCoordinate(self.mesh)
-        radius = 0.1 #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
+        radius = self.params.well_radius #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
         height = 1.0 # WARNING: if using SPE10, this needs to be smaller if you one single cell wells. Or can just use 'delta' or SourceTerms instead
         delta = Function(self.V)
         delta.assign(interpolate(conditional(pow(x-xw,2)+pow(y-yw,2)<pow(radius,2), conditional(abs(z-zw)<height, 1.0, 0.0)*exp(-(1.0/(-pow(x-xw,2)-pow(y-yw,2)+pow(radius,2)))), 0.0), self.V))

@@ -6,12 +6,13 @@ from datetime import datetime
 
 class ThermalModel:
         
-    def __init__(self, end = 1.0, maxdt = 0.005, save = False, n_save = 2, small_dt_start = True, checkpointing = {}, filename = "results/results.txt", dt_init_fact = 2**(-10)):
+    def __init__(self, end = 1.0, maxdt = 0.005, save = False, n_save = 2, small_dt_start = True, checkpointing = {}, filename = "results/results.txt", dt_init_fact = 2**(-10), verbosity = True):
 
         self.maxdt = maxdt
         self.dt_init_fact = dt_init_fact
         self.dt = Constant(maxdt*24.0*3600.0)
         self.end = end # in days
+        self.verbosity = verbosity
         #self.init_solver_parameters()
         self.init_variational_form()
         self.init_solver()
@@ -33,6 +34,11 @@ class ThermalModel:
     def init_solver(self):
         
         self.problem = NonlinearVariationalProblem(self.F, self.u, self.bcs)
+        if not self.verbosity:
+            del self.solver_parameters["snes_monitor"]
+            del self.solver_parameters["snes_converged_reason"]
+            del self.solver_parameters["ksp_converged_reason"]
+
         solver = NonlinearVariationalSolver(self.problem, appctx=self.appctx, solver_parameters=self.solver_parameters)
         
         if "ksp_monitor_residuals" in self.solver_parameters:
@@ -48,7 +54,7 @@ class ThermalModel:
                     rnorm_E = sqrt(vec_E.inner(vec_E))
                     vec_o = res.sub(2).vector()
                     rnorm_o = sqrt(vec_o.inner(vec_o))
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("  --> Pressure equation residual: %s" % (rnorm_p))
                         print("  --> Energy equation residual: %s" % (rnorm_E))
                         print("  --> Oil equation residual: %s" % (rnorm_o))
@@ -61,7 +67,7 @@ class ThermalModel:
                     rnorm_M = sqrt(vec_M.inner(vec_M))
                     vec_E = res.sub(1).vector()
                     rnorm_E = sqrt(vec_E.inner(vec_E))
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("  --> Mass equation residual: %s" % (rnorm_M))
                         print("  --> Energy equation residual: %s" % (rnorm_E))
                         
@@ -125,7 +131,7 @@ class ThermalModel:
                     (pvec, Tvec) = u.split()
                 outfilep.write(pvec)
                 outfileT.write(Tvec)
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and self.verbosity:
             print("Solving time-dependent problem")
 
         init_true = 0
@@ -145,12 +151,12 @@ class ThermalModel:
         while (t < end):
             i += 1
             previous_fail = 0
-            if self.comm.rank == 0:
+            if self.comm.rank == 0 and self.verbosity:
                 print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". dt size: ", self.dt.values()[0]/24.0/3600.0, flush = True)  
                 
             
                     
-            if self.comm.rank == 0:
+            if self.comm.rank == 0 and self.verbosity:
                 print(" ")
                     
             while True:
@@ -164,10 +170,10 @@ class ThermalModel:
                 except exceptions.ConvergenceError:
                     if self.name == "Two-phase":
                         print(np.max(u.dat.data[self.i_S_o]))
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print(i_plot, "th plot")
                     self.dt.assign(self.dt.values()[0]*0.5)
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0, flush = True)  
                     u.assign(u_)
                     previous_fail = 1
@@ -182,7 +188,7 @@ class ThermalModel:
                 else:
                     (p,T,S_o) = split(u)
                 mass_o = assemble(self.geo.phi*S_o*self.params.oil_rho(p,T)*dx)
-                if self.comm.rank == 0:
+                if self.comm.rank == 0 and self.verbosity:
                     print("Total oil mass in reservoir: ", mass_o, flush = True)
                 Sat = u.dat.data[self.i_S_o]
                 epsilon = 1e-10
@@ -193,10 +199,10 @@ class ThermalModel:
                 global_chop = self.comm.bcast(global_chop, root=0)
                 
                 while global_chop[0]: #False: #
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("------Negative saturation! Chopping time-step---------", flush = True)
                     self.dt.assign(self.dt.values()[0]*0.5)
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0, flush = True)  
                     u.assign(u_)
                     try:
@@ -204,7 +210,7 @@ class ThermalModel:
                     except exceptions.ConvergenceError:
                         print(np.max(u.dat.data[self.i_S_o]))
                         self.dt.assign(self.dt.values()[0]*0.5)
-                        if self.comm.rank == 0:
+                        if self.comm.rank == 0 and self.verbosity:
                             print("Time: ", t/24.0/3600.0, " days. Time-step ", i, ". New dt size: ", self.dt.values()[0]/24.0/3600.0, flush = True)  
                         u.assign(u_)
                         previous_fail = 1
@@ -225,17 +231,17 @@ class ThermalModel:
             ## Print prod/inj rates    
             if self.case.name.startswith("Sources"):
                 current_inj_rate = assemble(self.case.deltas_inj*self.inj_rate*dx)
-                if self.comm.rank == 0:
+                if self.comm.rank == 0 and self.verbosity:
                     print("Total injection rate is ", current_inj_rate)
                 current_prod_rate = assemble(self.case.deltas_prod*self.prod_rate*dx)
-                if self.comm.rank == 0:
+                if self.comm.rank == 0 and self.verbosity:
                     print("Total production rate is ", current_prod_rate)
                 if self.name == "Two-phase":
                     current_oil_rate = assemble(self.case.deltas_prod*self.oil_rate*dx)
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("Total oil production rate is ", current_oil_rate)
                     current_water_rate = assemble(self.case.deltas_prod*self.water_rate*dx)
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("Total water production rate is ", current_water_rate)
 
             if self.case.inj_wells:    #in cases with many wells, calculate individual rates is slow with assemble. In those cases, might be better to use SourceTerms instead
@@ -243,7 +249,7 @@ class ThermalModel:
                 for well in self.case.inj_wells:
                     current_inj_rate_ += well['delta']*well['rate']*dx
                 current_inj_rate = assemble(current_inj_rate_)
-                if self.comm.rank == 0:
+                if self.comm.rank == 0 and self.verbosity:
                     print("Total injection rate is ", current_inj_rate#,
                     #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']]
                     )
@@ -259,17 +265,17 @@ class ThermalModel:
                         current_oil_rate_ += well['delta']*well['oil_rate']*dx
                     current_water_rate = assemble(current_water_rate_)
                     current_oil_rate = assemble(current_oil_rate_)
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("Total water production rate is ", current_water_rate)
                         print("Total oil production rate is ", current_oil_rate)
-                if self.comm.rank == 0:
+                if self.comm.rank == 0 and self.verbosity:
                     print("Total production rate is ", current_prod_rate,
                     #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']], 
                     )
             if False:
                 for well in self.case.inj_wells:
                     current_inj_rate = assemble(well['delta']*well['rate']*dx)
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("New injection rate for well ", well['name'], " is ", current_inj_rate#,
                         #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']]
                         )
@@ -279,10 +285,10 @@ class ThermalModel:
                     if self.name == 'Two-phase':
                         current_water_rate = assemble(well['delta']*well['water_rate']*dx)
                         current_oil_rate = assemble(well['delta']*well['oil_rate']*dx)
-                        if self.comm.rank == 0:
+                        if self.comm.rank == 0 and self.verbosity:
                             print("Water rate for well ", well['name'], " is ", current_water_rate)
                             print("Oil rate for well ", well['name'], " is ", current_oil_rate)
-                    if self.comm.rank == 0:
+                    if self.comm.rank == 0 and self.verbosity:
                         print("New production rate for well ", well['name'], " is ", current_prod_rate,
                         #"\nPressure: ", pvec.vector()[well['node']], ". Temperature: ", Tvec.vector()[well['node']], 
                         )    
@@ -310,7 +316,7 @@ class ThermalModel:
                             outfileS_o.write(S_ovec)
                         else:
                             (pvec, Tvec) = u.split()
-                        if self.comm.rank == 0:
+                        if self.comm.rank == 0 and self.verbosity:
                             print(i_plot, "th plot")
                         outfilep.write(pvec)
                         outfileT.write(Tvec)
@@ -320,7 +326,7 @@ class ThermalModel:
             # update time-step
             current_nits = self.solver.snes.getIterationNumber() # can use this for adaptive time-step
             current_lits = self.solver.snes.getLinearSolveIterations()
-            if self.comm.rank == 0:
+            if self.comm.rank == 0 and self.verbosity:
                 print("Nonlinear iterations: ", current_nits)
                 print("Linear iterations: ", current_lits)
                 total_nits += current_nits
@@ -358,7 +364,7 @@ class ThermalModel:
             self.resultprint("Saving checkpoint solution in " + self.checkpointing["savename"])
         
         # convergence of iterative methods at each time-step
-        if self.comm.rank == 0:
+        if self.comm.rank == 0 and self.verbosity:
             self.resultprint("nits = ", nits_vec, ";")
             self.resultprint("lits = ", lits_vec, ";")
             self.resultprint("dts = ", dt_vec, ";")

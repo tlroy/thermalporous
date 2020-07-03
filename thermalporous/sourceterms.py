@@ -97,7 +97,7 @@ class SourceTerms():
         xw = w[0]
         yw = w[1]
         x, y = SpatialCoordinate(self.mesh)
-        radius = 0.1 #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
+        radius = self.params.well_radius #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
         delta = Function(self.V)
         delta.assign(interpolate(conditional(pow(x-xw,2)+pow(y-yw,2)<pow(radius,2), exp(-(1.0/(-pow(x-xw,2)-pow(y-yw,2)+pow(radius,2)))), 0.0), self.V))
         normalise = assemble(delta*dx)
@@ -112,7 +112,7 @@ class SourceTerms():
         yw = w[1]
         zw = w[2]
         x, y, z = SpatialCoordinate(self.mesh)
-        radius = 0.1 #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
+        radius = self.params.well_radius #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
         height = 0.1 # 1.0 for non-adjacent wells, 0.1 for adjacent
         delta = Function(self.V)
         delta.assign(interpolate(conditional(pow(x-xw,2)+pow(y-yw,2)<pow(radius,2), conditional(abs(z-zw)<height, 1.0, 0.0)*exp(-(1.0/(-pow(x-xw,2)-pow(y-yw,2)+pow(radius,2)))), 0.0), self.V))

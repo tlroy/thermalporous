@@ -32,6 +32,7 @@ class PhysicalParameters():
     lmbda = 2.0 # Brooks-Corey constant
     Sr_o = 0.1 # residual oil saturation
     Sr_w = 0.2 # residual water saturation
+    well_radius = 0.1 #0.1875*0.3048 # 0.1 radius of well # 0.1875*0.3048 from ChenZhang2009
     
     def oil_rho(self, p, T):
         # Formula for density, using coefficients representative of reservoir simulation
